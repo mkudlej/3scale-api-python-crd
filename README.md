@@ -1,0 +1,1 @@
+# 3scale-api-python-crd
