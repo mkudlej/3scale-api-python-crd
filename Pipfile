@@ -1,0 +1,15 @@
+[dev-packages]
+flake8 = "*"
+mypy = "*"
+pylint = "*"
+pytest = "*"
+python-dotenv = "*"
+backoff = "*"
+responses = "*"
+
+[packages]
+3scale-api = {editable = true,path = "./../mkudlej-3scale-api-python"} 
+openshift-client = "*"
+
+[requires]
+python_version = "3"
