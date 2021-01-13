@@ -103,7 +103,7 @@ def test_service_proxy_configs_list_length(service, proxy):
     assert len(configs) == length + 1
 
 # there is no default mapping rule in service created from CRD
-def test_service_mapping_rules(service, create_mapping_rule):
+def test_service_mapping_rules(service):
     map_rules = service.mapping_rules.list()
     assert len(map_rules) == 0 
 

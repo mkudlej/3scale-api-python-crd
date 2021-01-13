@@ -40,11 +40,11 @@ class Service(threescale_api.resources.Service, DefaultResourceCRD):
                         },
                     },
                 },
-            'backendUsages': {
-                'backend1': {
-                    'path': '/sdfsdf',
-                    },
-                },
+            #'backendUsages': {
+            #    'backend1': {
+            #        'path': '/sdfsdf',
+            #        },
+            #    },
             },
         }
     KEYS = {'description': 'description', 'name':'name', 'system_name':'systemName'}
@@ -57,8 +57,6 @@ class Service(threescale_api.resources.Service, DefaultResourceCRD):
                     if k == w:
                         entity[c] = v
             entity['id'] = kwargs['crd'].as_dict().get('status').get('productId')
-            if not entity['id']:
-                raise Exception()
 
             threescale_api.resources.Service.__init__(self, entity_name=entity_name, entity=entity)
             DefaultResourceCRD.__init__(self,  entity_name=entity_name, entity=entity, **kwargs)

@@ -45,7 +45,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         if self.__class__.__name__ == 'Services':
             self._list_crds = self.read_crd(self._entity_collection)
             instance_list = self._create_instance(response=self._list_crds)
-            return ([instance for instance in instance_list if int(instance['id']) == int(entity_id)][:1] or [None])[0]
+            return ([instance for instance in instance_list if instance['id'] and int(instance['id']) == int(entity_id)][:1] or [None])[0]
         return threescale_api.defaults.DefaultClient.fetch(self, entity_id, **kwargs)
 
     def _list(self, **kwargs) -> List['DefaultResource']:
@@ -126,6 +126,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         LOG.info(self._log_message("[DELETE] Delete CRD ", entity_id=entity_id, args=kwargs))
         if self.__class__.__name__ == 'Services':
             resource.crd.delete()
+        # TODO remove and add test
         return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
 
     
@@ -136,9 +137,9 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         if self._instance_klass.__name__ == 'Service':
             # Safer way than using only apply()
             def _modify(apiobj):
-                for key in apiobj.model.spec.keys():
+                for key in resource.entity.keys():
                     if key in resources.Service.KEYS:
-                        apiobj.model.spec[key] = resource.entity[key]
+                        apiobj.model.spec[resources.Service.KEYS[key]] = resource.entity[key]
     
             result, success = resource.crd.modify_and_apply(modifier_func=_modify)
             if not success:
@@ -148,10 +149,6 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         return threescale_api.defaults.DefaultClient.update(self, entity_id=entity_id, params=params, **kwargs)
 
         
-        #instance = self._create_instance(response=response)
-        #return instance
-
-
 
 class DefaultResourceCRD(threescale_api.defaults.DefaultResource):
     def __init__(self, crd = None, *args, **kwargs):
