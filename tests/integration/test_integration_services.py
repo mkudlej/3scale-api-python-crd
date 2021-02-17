@@ -42,27 +42,28 @@ def test_service_can_be_updated(api, service):
     assert service['description'] == des_changed
 
 
-def test_service_get_proxy(api, service: Service, proxy: Proxy, api_backend):
-    assert proxy['api_backend'] == api_backend
-    assert proxy['api_test_path'] == '/get'
+def test_service_get_proxy(api, service: Service, proxy: Proxy):
+    assert proxy['error_status_auth_failed'] == 403
+    assert proxy['api_test_path'] == '/'
 
 
-def test_service_set_proxy(api, service: Service, proxy: Proxy, api_backend):
+def test_service_set_proxy(api, service: Service, proxy: Proxy):
     updated = proxy.update(params=dict(api_test_path='/ip'))
-    assert updated['api_backend'] == api_backend
+    assert updated['error_status_auth_failed'] == 403
     assert updated['api_test_path'] == '/ip'
 
 
-def test_service_proxy_promote(service, proxy):
-    res = proxy.promote()
+def test_service_proxy_promote(service, proxy, backend_usage):
+    service.proxy.list().deploy()
+    res = service.proxy.list().promote()
     assert res is not None
     assert res['environment'] == 'production'
     assert res['content'] is not None
 
 
-def test_service_proxy_deploy(service, proxy):
+def test_service_proxy_deploy(service, proxy, backend_usage, api_backend):
     # this will not propagate to proxy config but it allows deployment
-    proxy.update(params=dict(support_email='test@example.com'))
+    proxy.update(params=dict(api_backend=api_backend, support_email='test@example.com'))
     proxy.deploy()
     res = proxy.configs.list(env='staging')
     proxy_config = res.entity['proxy_configs'][-1]['proxy_config']
@@ -72,14 +73,15 @@ def test_service_proxy_deploy(service, proxy):
     assert proxy_config['version'] > 1
 
 
-def test_service_list_configs(service, proxy):
+def test_service_list_configs(service, proxy, backend_usage):
     res = proxy.configs.list(env='staging')
     assert res
     item = res[0]
     assert item
 
 
-def test_service_proxy_configs_version(service, proxy):
+def test_service_proxy_configs_version(service, proxy, backend_usage):
+    service.proxy.list().deploy()
     config = service.proxy.list().configs.version(version=1)
     assert config
     assert config['environment'] == "sandbox"
@@ -87,7 +89,8 @@ def test_service_proxy_configs_version(service, proxy):
     assert config['content']
 
 
-def test_service_proxy_configs_latest(service, proxy):
+def test_service_proxy_configs_latest(service, proxy, backend_usage):
+    service.proxy.list().deploy()
     config = service.proxy.list().configs.latest()
     assert config
     assert config['environment'] == "sandbox"
@@ -95,10 +98,10 @@ def test_service_proxy_configs_latest(service, proxy):
     assert config['content']
 
 
-def test_service_proxy_configs_list_length(service, proxy):
+def test_service_proxy_configs_list_length(service, proxy, backend_usage, api_backend):
     configs = service.proxy.list().configs.list(env="sandbox")
     length = len(configs)
-    proxy.update(params=dict(api_test_path='/ip'))
+    proxy.update(params=dict(error_status_auth_failed=417, api_backend=api_backend))
     configs = service.proxy.list().configs.list(env="sandbox")
     assert len(configs) == length + 1
 

@@ -9,7 +9,7 @@ from threescale_api import errors
 
 import threescale_api_crd
 from threescale_api.resources import (ApplicationPlan, Application,
-                                      Proxy, Backend, Metric, MappingRule,
+                                      Proxy, Metric,
                                       BackendMappingRule, BackendUsage,
                                       ActiveDoc, Webhooks)
 
@@ -17,8 +17,9 @@ from threescale_api_crd.resources import (Service)
 load_dotenv()
 
 def cleanup(resource):
-    resource.delete()
-    assert not resource.exists()
+    #resource.delete()
+    #assert not resource.exists()
+    pass
 
 def get_suffix() -> str:
     return secrets.token_urlsafe(8)
@@ -76,7 +77,8 @@ def master_api(master_url: str, master_token: str,
 
 
 @pytest.fixture(scope='module')
-def apicast_http_client(application, ssl_verify):
+def apicast_http_client(application, proxy, ssl_verify):
+    proxy.list().deploy()
     return application.api_client(verify=ssl_verify)
 
 
@@ -115,7 +117,9 @@ def application_plan_params() -> dict:
 
 @pytest.fixture(scope='module')
 def application_plan(api, service, application_plan_params) -> ApplicationPlan:
-    resource = service.app_plans.create(params=application_plan_params)
+    #TODO revert this when app. plans are implemented
+    #resource = service.app_plans.create(params=application_plan_params)
+    resource = service.get_app_plan()
     yield resource
 
 
@@ -134,14 +138,8 @@ def application(account, application_plan, application_params) -> Application:
 
 
 @pytest.fixture(scope='module')
-def proxy(service, application, api_backend) -> Proxy:
-    params = {
-        'api_backend': api_backend,
-        'credentials_location': 'query',
-        'api_test_path': '/get',
-    }
-    proxy = service.proxy.update(params=params)
-    return proxy
+def proxy(service, application, backend) -> Proxy:
+    return service.proxy.list()
 
 
 @pytest.fixture(scope='module')
@@ -237,7 +235,7 @@ def mapping_rule_params(hits_metric):
     """
     Fixture for getting paramteres for mapping rule for product/service.
     """
-    return dict(http_method='GET', pattern='/', metric_id=hits_metric['id'],
+    return dict(http_method='GET', pattern='/get', metric_id=hits_metric['id'],
                 delta=1)
 
 
@@ -271,11 +269,11 @@ def updated_backend_mapping_rules_params(backend_mapping_rule_params):
 
 
 @pytest.fixture(scope='module')
-def mapping_rule(proxy, mapping_rule_params) -> MappingRule:
+def mapping_rule(service, mapping_rule_params) -> threescale_api_crd.resources.MappingRule:
     """
     Fixture for getting mapping rule for product/service.
     """
-    resource = proxy.mapping_rules.create(params=mapping_rule_params)
+    resource = service.mapping_rules.create(params=mapping_rule_params)
     yield resource
     cleanup(resource)
 
@@ -294,14 +292,13 @@ def create_mapping_rule(service):
     Fixture for creating mapping rule for product/service.
     """
     rules = []
-    proxy = service.proxy.list()
 
     def _create(metric, http_method, path):
         params = dict(service_id=service['id'],
                       http_method=http_method,
                       pattern=f'/anything{path}',
                       delta=1, metric_id=metric['id'])
-        rule = proxy.mapping_rules.create(params=params)
+        rule = service.mapping_rules.create(params=params)
         rules.append(rule)
         return rule
 
@@ -344,7 +341,7 @@ def backend_params(api_backend):
                 description='111')
 
 @pytest.fixture(scope='module')
-def backend(backend_params, api) -> Backend:
+def backend(backend_params, api) -> threescale_api_crd.resources.Backend:
     """
     Fixture for getting backend.
     """
@@ -388,8 +385,7 @@ def tenant_params():
 @pytest.fixture(scope='module')
 def active_docs_body():
     return """
-{"swagger":"2.0","info":{"version":"1.0.0","title":"Test"},"paths":{"/test":{"get":{"operationId":"Test",
-"parameters":[],"responses":{"400":{"description":"bad input parameter"}}}}},"definitions":{}}
+    {"openapi": "3.0.0", "info": {"version": "1.0.0", "title": "example"}, "paths": {}}
 """
 
 @pytest.fixture(scope='module')
