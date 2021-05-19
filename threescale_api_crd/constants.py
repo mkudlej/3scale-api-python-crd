@@ -28,18 +28,24 @@ SPEC_SERVICE = {
                     'userkey': {
                         'authUserKey': 'token',
                         'credentials': 'query',
+                        'gatewayResponse': {
+                            },
                         },
                     },
                 },
             },
         'applicationPlans': {
             'AppPlanTest': {
-                'setupFee': '10.70',
-                'costMonth': '10.80',
+                'setupFee': '0.00',
+                'costMonth': '0.00',
                 }
             },
         },
+        'policies': [] 
     }
+
+SPEC_PROXY = {}
+
 
 SPEC_BACKEND = {
     'apiVersion': 'capabilities.3scale.net/v1beta1',
@@ -119,7 +125,7 @@ SPEC_ACTIVE_DOC = {
 
 SPEC_POLICY_REG = {
     'apiVersion': 'capabilities.3scale.net/v1beta1',
-    'kind': 'Policy',
+    'kind': 'CustomPolicyDefinition',
     'metadata': {
         'name': None,
         'namespace': None,
@@ -140,14 +146,84 @@ SPEC_POLICY_REG = {
             }
     }
 }
+
+
+SPEC_ACCOUNT = {
+    'apiVersion': 'capabilities.3scale.net/v1beta1',
+    'kind': 'DeveloperAccount',
+    'metadata': {
+        'name': None,
+        'namespace': None,
+        },
+    'spec': {
+        'providerAccountRef': {
+            'name': None,
+            },
+        'orgName': None,
+        'monthlyBillingEnabled': None,
+        'monthlyChargingEnabled': None
+    }
+}
+
+SPEC_ACCOUNT_USER = {
+    'apiVersion': 'capabilities.3scale.net/v1beta1',
+    'kind': 'DeveloperUser',
+    'metadata': {
+        'name': None,
+        'namespace': None,
+        },
+    'spec': {
+        'providerAccountRef': {
+            'name': None,
+            },
+        'username': None,
+        'email': None,
+        'suspended': None,
+        'role': None,
+        'passwordCredentialsRef': {
+            'name': None,
+        },
+        'developerAccountRef': {
+            'name': None,
+        }
+    }
+}
+
+SPEC_POLICY = {
+    'spec': {
+        'name': None,
+        'version': None,
+        'enabled': None,
+        'configuration': {},
+        }
+    }
+
 KEYS_SERVICE = {
     'description': 'description',
     'name': 'name',
     'system_name': 'systemName',
     'mapping_rules': 'mappingRules',
     'metrics': 'metrics',
-    'backend_usages': 'backendUsages'
+    'backend_usages': 'backendUsages',
+    'application_plans': 'applicationPlans',
+    'deployment': 'deployment',
+    'policies': 'policies',
 }
+
+KEYS_PROXY = {
+    'error_auth_failed': 'errorAuthFailed',
+    'error_auth_missing': 'errorAuthMissing',
+    'error_headers_auth_failed': 'errorHeadersAuthFailed',
+    'error_headers_auth_missing': 'errorHeadersAuthMissing',
+    'error_headers_limits_exceeded': 'errorHeadersLimitsExceeded',
+    'error_headers_no_match': 'errorHeadersNoMatch',
+    'error_limits_exceeded': 'errorLimitsExceeded',
+    'error_no_match': 'errorNoMatch',
+    'error_status_auth_failed': 'errorStatusAuthFailed',
+    'error_status_auth_missing': 'errorStatusAuthMissing',
+    'error_status_limits_exceeded': 'errorStatusLimitsExceeded',
+    'error_status_no_match': 'errorStatusNoMatch',
+        }
 
 KEYS_BACKEND = {
     'description': 'description',
@@ -198,7 +274,6 @@ KEYS_APP_PLANS = {
     'trial_period_days': 'trialPeriod',
     'setup_fee': 'setupFee',
     'cost_per_month': 'costMonth',
-    'system_name': 'system_name',
     # missing state, cancellation_period, default, custom
 }
 
@@ -206,6 +281,27 @@ KEYS_BACKEND_USAGE = {
     'path': 'path',
     'service_id': 'service_id',
     'backend_id': 'backend_id',
+}
+
+KEYS_ACCOUNT = {
+    'org_name': 'orgName',
+    'monthly_billing_enabled': 'monthlyBillingEnabled',
+    'monthly_charging_enabled': 'monthlyChargingEnabled'
+    # missing credit_card_stored, created_at, updated_at
+}
+
+KEYS_ACCOUNT_USER = {
+    'username': 'username',
+    'email': 'email',
+    'suspended': 'suspended',
+    'role': 'role'
+}
+
+KEYS_POLICY = {
+    'name': 'name',
+    'version': 'version',
+    'configuration': 'configuration',
+    'enabled': 'enabled',
 }
 
 SPEC_SECRET = {

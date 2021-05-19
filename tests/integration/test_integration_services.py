@@ -8,16 +8,15 @@ def test_3scale_url_is_set(api, url, token):
     assert token is not None
     assert api.url is not None
 
+# tests important for CRD - CRU + list
 
-def test_services_list(api):
+def test_services_list(api, service):
     services = api.services.list()
     assert len(services) >= 1
-
 
 def test_service_can_be_created(api, service_params, service):
     assert_resource(service)
     assert_resource_params(service, service_params)
-
 
 def test_service_can_be_read(api, service_params, service):
     read = api.services.read(service.entity_id)
@@ -41,16 +40,19 @@ def test_service_can_be_updated(api, service):
     assert updated['description'] == des_changed
     assert service['description'] == des_changed
 
+# end of tests important for CRD - CRU + list
 
+def test_proxy_list(api, service: Service, proxy: Proxy):
+    assert not isinstance(proxy, list)
+
+# proxy object is empty until it is configured, there is no default value in CRD
 def test_service_get_proxy(api, service: Service, proxy: Proxy):
-    assert proxy['error_status_auth_failed'] == 403
-    assert proxy['api_test_path'] == '/'
-
+    assert proxy.entity == {}
 
 def test_service_set_proxy(api, service: Service, proxy: Proxy):
-    updated = proxy.update(params=dict(api_test_path='/ip'))
-    assert updated['error_status_auth_failed'] == 403
-    assert updated['api_test_path'] == '/ip'
+    updated = proxy.update(params=dict(error_status_no_match=403, error_status_auth_missing=403))
+    assert updated['error_status_auth_missing'] == 403
+    assert updated['error_status_no_match'] == 403
 
 
 def test_service_proxy_promote(service, proxy, backend_usage):
@@ -61,9 +63,8 @@ def test_service_proxy_promote(service, proxy, backend_usage):
     assert res['content'] is not None
 
 
-def test_service_proxy_deploy(service, proxy, backend_usage, api_backend):
-    # this will not propagate to proxy config but it allows deployment
-    proxy.update(params=dict(api_backend=api_backend, support_email='test@example.com'))
+def test_service_proxy_deploy(service, proxy, backend_usage):
+    proxy.update(params=dict(error_status_no_match=405, error_status_auth_missing=405))
     proxy.deploy()
     res = proxy.configs.list(env='staging')
     proxy_config = res.entity['proxy_configs'][-1]['proxy_config']
@@ -74,6 +75,8 @@ def test_service_proxy_deploy(service, proxy, backend_usage, api_backend):
 
 
 def test_service_list_configs(service, proxy, backend_usage):
+    proxy.update(params=dict(error_status_no_match=406, error_status_auth_missing=406))
+    proxy.deploy()
     res = proxy.configs.list(env='staging')
     assert res
     item = res[0]

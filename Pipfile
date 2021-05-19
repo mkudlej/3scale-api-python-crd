@@ -6,9 +6,14 @@ pytest = "*"
 python-dotenv = "*"
 backoff = "*"
 responses = "*"
+pytest-profiling = "*"
+python-language-server = "*"
+pyls-mypy = "*"
+pyls-isort = "*"
 
 [packages]
 3scale-api = {editable = true,path = "./../mkudlej-3scale-api-python"} 
+# 3scale-api = {git = "https://github.com/mkudlej/3scale-api-python.git",editable = true,ref = "crd_client_changes"}
 openshift-client = "*"
 
 [requires]

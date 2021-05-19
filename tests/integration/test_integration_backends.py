@@ -42,9 +42,9 @@ def test_backend_can_be_updated(api, backend):
     assert backend['description'] == '222'
 
 
-#def test_backend_metrics_list(backend, backend_metric):
-#    assert len(backend.metrics.list()) > 1
-#
-#
-#def test_backend_mapping_rules_list(backend, backend_mapping_rule):
-#    assert backend.mapping_rules.list()
+def test_backend_metrics_list(backend, backend_metric):
+    assert len(backend.metrics.list()) > 1
+
+
+def test_backend_mapping_rules_list(backend, backend_mapping_rule):
+    assert backend.mapping_rules.list()

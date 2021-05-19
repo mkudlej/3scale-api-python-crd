@@ -23,7 +23,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         LOG.info('CRD read ' + sel)
         return ocp.selector(sel).objects()
 
-    def fetch(self, entity_id: int = None, **kwargs) -> dict:
+    def fetch(self, entity_id: int = None, **kwargs):
         """Fetch the entity dictionary
         Args:
             entity_id(int): Entity id
@@ -49,7 +49,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         Returns(List['DefaultResource']):
 
         """
-        LOG.info(self._log_message("[_LIST]", args=kwargs))
+        LOG.info(self._log_message("[_LIST] CRD", args=kwargs))
         if self.__class__.CRD_IMPLEMENTED:
             list_crds = self.read_crd(self._entity_collection)
             instance = self._create_instance(response=list_crds, collection=True)
@@ -74,7 +74,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
 
             self.before_create(params, spec)
 
-            spec['spec'] = self.translate_to_crd(params)
+            spec['spec'].update(self.translate_to_crd(params))
             for key, value in self.__class__.KEYS.items():
                 if params.get(key, None) is None and \
                     value in spec['spec'] and \
@@ -84,13 +84,16 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
                     if 'metric_id' not in params.keys():
                         spec['spec']['metricMethodRef'] = 'hits'
-                    else:
+                    elif isinstance(params['metric_id'], int):
                         met = self.parent.metrics.read(int(params['metric_id']))
                         # exception because of backend mapping rules
+                        name = met.entity.get('system_name', met.entity.get('name'))
                         if '.' in met['system_name']:
-                            spec['spec']['metricMethodRef'] = met['system_name'].split('.')[0]
-                        else:
-                            spec['spec']['metricMethodRef'] = met['system_name']
+                            spec['spec']['metricMethodRef'] = name.split('.')[0]
+                        spec['spec']['metricMethodRef'] = name
+                    else:
+                        # metric id is tuple
+                        spec['spec']['metricMethodRef'] = params['metric_id'][0]
                 mapsi = self.get_list()
                 maps = {}
                 if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
@@ -102,20 +105,23 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                     elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
                         name = mapi['name']
                         maps[name] = self.translate_to_crd(mapi.entity, self.trans_item)
-                    elif self.__class__.__name__ in ['BackendUsages', 'ApplicationPlans']:
+                    elif self.__class__.__name__ in ['BackendUsages']:
                         map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                         backend_id = mapi['backend_id']
                         back = self.parent.parent.backends.read(int(backend_id))
                         maps[back['name']] = map_ret
+                    elif self.__class__.__name__ in ['ApplicationPlans']:
+                        name = mapi['name']
+                        maps[name] = self.translate_to_crd(mapi.entity, self.trans_item)
 
                 if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                    self.insert_into_position(maps, params, spec)
+                    resources.MappingRules.insert_into_position(maps, params, spec)
                     par = self.parent.update({'mapping_rules':maps})
                     maps = self.parent.mapping_rules.list()
-                    return self.get_from_position(maps, params)
+                    return resources.MappingRules.get_from_position(maps, params)
 
                 elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                    name = spec['spec'].pop('name')
+                    name = params.get('name', params.get('system_name', 'hits'))
                     maps[name] = spec['spec']
                     par = self.parent.update({'metrics':maps})
                     maps = self.get_list()
@@ -128,11 +134,10 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                     par = self.parent.update({'backend_usages':maps})
                     maps = self.parent.backend_usages.list()
                 elif self.__class__.__name__ in ['ApplicationPlans']:
-                    sys_name = spec['spec'].pop('system_name')
-                    maps[sys_name] = spec['spec']
+                    params['name'] = DefaultClientCRD.normalize(spec['spec'].pop('name'))
+                    maps[params['name']] = spec['spec']
                     par = self.parent.update({'application_plans':maps})
                     maps = self.get_list()
-
 
                 for mapi in maps:
                     if all([params[key] == mapi[key] for key in params.keys()]):
@@ -176,19 +181,26 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                     if prod_dict is None:
                         prod_dict = {}
                     idp = int(prod_dict.get('status', {}).get('productId', 0)) or \
-                            int(prod_dict.get('status', {}).get('backendId', 0))
+                            int(prod_dict.get('status', {}).get('backendId', 0)) or \
+                            int(prod_dict.get('status', {}).get('activeDocId', 0)) or \
+                            int(prod_dict.get('status', {}).get('accountID', 0)) or \
+                            int(prod_dict.get('status', {}).get('policyID', 0)) or \
+                            int(prod_dict.get('status', {}).get('developerUserID', 0))
                     if  idp == parent_id:
                         service_with_maps = prod
                         break
                 spec = (DictQuery(service_with_maps.as_dict()).get(klass.GET_PATH)) or []
                 if isinstance(spec, list):
                     return [{'spec': obj, 'crd': service_with_maps} for obj in spec]
-                else:
+                elif 'apicastHosted' not in spec.keys(): # exception for Proxy
                     ret = []
                     for key, obj in spec.items():
                         obj['name'] = key
+
                         ret.append({'spec': obj, 'crd': service_with_maps})
                     return ret
+                else:
+                    return [{'spec': spec, 'crd': service_with_maps}]
             elif self.__class__.CRD_IMPLEMENTED:
                 return [{'spec': obj.as_dict()['spec'], 'crd': obj} for obj in response]
         #if entity in extracted.keys():
@@ -198,6 +210,8 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
     def _instantiate_crd(self, extracted, klass):
         if isinstance(extracted, list):
             instance = [self.__make_instance_crd(item, klass) for item in extracted]
+            if self.__class__.__name__ == 'Policies':
+                return {'policies_config': instance}
             return instance
         return self.__make_instance_crd(extracted, klass)
 
@@ -238,7 +252,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 elif self.__class__.__name__ in ['ApplicationPlans']:
                     map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                     if map_ret != spec:
-                        name = mapi['system_name']
+                        name = mapi['name']
                         maps[name] = map_ret
 
             if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
@@ -259,23 +273,41 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                resource: 'DefaultResource' = None, **kwargs) -> 'DefaultResource':
         LOG.info(self._log_message("[UPDATE] Update CRD", body=params,
                                    entity_id=entity_id, args=kwargs))
-        new_params = {**resource.entity}
+        new_params = {}
+        if resource:
+            new_params = {**resource.entity}
         if params:
             new_params.update(params)
-
+#TODO change ids for objects which require ids
         if self.__class__.CRD_IMPLEMENTED and self.__class__.NESTED:
+            spec = {}
+            
             if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
                 new_params['id'] = (new_params['http_method'], new_params['pattern'])
             elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                new_params['id'] = (new_params['friendly_name'], new_params['unit'])
+                new_params['id'] = (new_params['name'], new_params['unit'])
             elif self.__class__.__name__ in ['BackendUsages']:
                 new_params['id'] =\
                     (new_params['path'], new_params['backend_id'], new_params['service_id'])
             elif self.__class__.__name__ in ['ApplicationPlans']:
-                new_params['id'] = new_params['system_name']
-
-            resource.entity_id = new_params['id']
-            spec = self.translate_to_crd(new_params, self.trans_item)
+                new_params['id'] = new_params['name']
+            elif self.__class__.__name__ in ['Proxies']:
+                new_params['id'] = self.parent.entity_id
+            elif self.__class__.__name__ in ['Policies']:
+                new_params = new_params['policies_config']
+                # this should be done because list of policies is already
+                # constructed list and not just one item
+                spec = []
+                for item in new_params:
+                    if hasattr(item, 'entity'):
+                        item = item.entity
+                    spec.append(self.translate_to_crd(item, self.trans_item))
+            
+            if resource:
+                resource.entity_id = new_params['id']
+            # see above comment
+            if self.__class__.__name__ not in ['Policies']:
+                spec = self.translate_to_crd(new_params, self.trans_item)
 
             if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules'] and \
                 'metric_id' not in params.keys():
@@ -287,7 +319,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 maps = []
             for mapi in mapsi:
                 if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                    map_ret = self.translate_to_crd(mapi, self.trans_item)
+                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                     if map_ret != spec:
                         maps.append(map_ret)
                 elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
@@ -302,13 +334,12 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                         back = self.parent.parent.backends.read(int(backend_id))
                         maps[back['name']] = map_ret
                 elif self.__class__.__name__ in ['ApplicationPlans']:
-                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if map_ret != spec:
-                        name = mapi['system_name']
-                        maps[name] = map_ret
-
+                    if mapi['id'] != new_params['id']:
+                        map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
+                        map_ret.pop('name')
+                        maps[mapi['name']] = map_ret
             if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                self.insert_into_position(maps, new_params, spec)
+                resources.MappingRules.insert_into_position(maps, new_params, spec)
                 par = self.parent.update({'mapping_rules':maps})
             elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
                 name = spec.pop('name')
@@ -321,14 +352,33 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 maps[back['name']] = spec
                 par = self.parent.update({'backend_usages':maps})
             elif self.__class__.__name__ in ['ApplicationPlans']:
-                name = spec.pop('system_name')
-                maps[name] = spec
+                maps[new_params['id']] = spec
                 par = self.parent.update({'application_plans':maps})
+            elif self.__class__.__name__ in ['Proxies']:
+                obj = {}
+                iter_obj = obj
+                for path in resource.spec_path:
+                    if path not in iter_obj:
+                        if path == resource.spec_path[-1]:
+                            iter_obj[path] = spec
+                        else:
+                            iter_obj[path] = {}
+                    iter_obj = iter_obj[path]
+
+                par = self.parent.update({'deployment': obj})
+            elif self.__class__.__name__ in ['Policies']:
+                par = self.parent.update({'policies': spec})
 
             maps = self.get_list()
             if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                return self.get_from_position(maps, new_params)
-
+                return resources.MappingRules.get_from_position(maps, new_params)
+            
+            if self.__class__.__name__ in ['Proxies']:
+                return par.proxy.list()
+            
+            if self.__class__.__name__ in ['Policies']:
+                return maps
+            
             for mapi in maps:
                 if all([new_params[key] == mapi[key] for key in new_params.keys()]):
                     return mapi
@@ -337,15 +387,13 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         elif self.__class__.CRD_IMPLEMENTED:
             self.before_update(new_params, resource)
             def _modify(apiobj):
-                for key in new_params.keys():
-                    if key in self.KEYS:
-                        apiobj.model.spec[self.KEYS[key]] = new_params[key]
-
+                apiobj.model.spec = self.translate_to_crd(new_params)
             if resource.crd is None:
                 resource = resource.read()
             result, success = resource.crd.modify_and_apply(modifier_func=_modify)
             if not success:
-                LOG.error(f"[INSTANCE] Update failed: {result}")
+                LOG.error(f"[INSTANCE] Update CRD failed: {result}")
+                raise Exception(str(result))
             return resource.read()
 
 
