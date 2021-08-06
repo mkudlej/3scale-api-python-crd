@@ -23,9 +23,9 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
             self,
             instance_klass=resources.PolicyRegistry)
         self._backends = resources.Backends(crd_client=self, instance_klass=resources.Backend)
-# discussion https://issues.redhat.com/browse/THREESCALE-6501
-#        self._accounts = resources.Accounts(self, instance_klass=resources.Account)
-#        self._accounts_users = resources.AccountUsers(self, instance_klass=resources.AccountUser)
+        self._accounts = resources.Accounts(self, instance_klass=resources.Account)
+        self._accounts_users = resources.AccountUsers(self, instance_klass=resources.AccountUser)
+        self._openapis = resources.OpenApis(self, instance_klass=resources.OpenApi)
 
     @property
     def services(self) -> resources.Services:
@@ -55,19 +55,26 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
         """
         return self._backends
     
-#    @property
-#    def accounts(self) -> resources.Accounts:
-#        """Gets accounts client
-#        Returns(resources.Accounts): Accounts client
-#        """
-#        return self._accounts
-#
-#    @property
-#    def account_users(self) -> resources.AccountUsers:
-#        """Gets account users client
-#        Returns(resources.AccountUsers): Account Users client
-#        """
-#        return self._accounts_users
+    @property
+    def accounts(self) -> resources.Accounts:
+        """Gets accounts client
+        Returns(resources.Accounts): Accounts client
+        """
+        return self._accounts
+
+    @property
+    def account_users(self) -> resources.AccountUsers:
+        """Gets account users client
+        Returns(resources.AccountUsers): Account Users client
+        """
+        return self._accounts_users
+    
+    @property
+    def open_apis(self) -> resources.OpenApis:
+        """Gets AopenApis client
+        Returns(resources.OpenApis): OpenApis client
+        """
+        return self._openapis
 
     @property
     def ocp_provider_ref(self):

@@ -45,9 +45,22 @@ def test_service_can_be_updated(api, service):
 def test_proxy_list(api, service: Service, proxy: Proxy):
     assert not isinstance(proxy, list)
 
-# proxy object is empty until it is configured, there is no default value in CRD
+# proxy object is doesn't contain error codes until they are configured.
+# there is no default value in CRD
 def test_service_get_proxy(api, service: Service, proxy: Proxy):
-    assert proxy.entity == {}
+    assert 'error_auth_failed' not in proxy.entity
+    assert 'error_auth_missing' not in proxy.entity
+    assert 'error_headers_auth_failed' not in proxy.entity
+    assert 'error_headers_auth_missing' not in proxy.entity
+    assert 'error_headers_limits_exceeded' not in proxy.entity
+    assert 'error_headers_no_match' not in proxy.entity
+    assert 'error_limits_exceeded' not in proxy.entity
+    assert 'error_no_match' not in proxy.entity
+    assert 'error_status_auth_failed' not in proxy.entity
+    assert 'error_status_auth_missing' not in proxy.entity
+    assert 'error_status_limits_exceeded' not in proxy.entity
+    assert 'error_status_no_match' not in proxy.entity
+
 
 def test_service_set_proxy(api, service: Service, proxy: Proxy):
     updated = proxy.update(params=dict(error_status_no_match=403, error_status_auth_missing=403))

@@ -198,6 +198,30 @@ SPEC_POLICY = {
         }
     }
 
+SPEC_OPEN_API = {
+    'apiVersion': 'capabilities.3scale.net/v1beta1',
+    'kind': 'OpenApi',
+    'metadata': {
+        'name': None,
+        'namespace': None,
+        },
+    'spec': {
+        'providerAccountRef': {
+            'name': None,
+            },
+#           'openapiRef': {
+#            'url': None,
+#            },
+#        'productionPublicBaseURL': None,
+#        'stagingPublicBaseURL': None,
+#        'productSystemName': None,
+#        'privateBaseURL': None,
+#        'prefixMatching': None,
+#        'privateAPIHostHeader': None,
+#        'privateAPISecretToken': None 
+    }
+}
+
 KEYS_SERVICE = {
     'description': 'description',
     'name': 'name',
@@ -223,6 +247,18 @@ KEYS_PROXY = {
     'error_status_auth_missing': 'errorStatusAuthMissing',
     'error_status_limits_exceeded': 'errorStatusLimitsExceeded',
     'error_status_no_match': 'errorStatusNoMatch',
+    'credentials_location': 'credentials',
+    'endpoint': 'productionPublicBaseURL',
+    'sandbox_endpoint': 'stagingPublicBaseURL',
+    'auth_user_key': 'authUserKey',
+    'auth_app_key': 'appKey',
+    'auth_app_id': 'appID',
+    'secret_token': 'secretToken',
+    'host_header': 'hostHeader',
+    'oidc_issuer_endpoint': 'issuerEndpoint',
+    'oidc_issuer_type': 'issuerType',
+    'jwt_claim_with_client_id': 'jwtClaimWithClientID',
+    'jwt_claim_with_client_id_type': 'jwtClaimWithClientIDType',
         }
 
 KEYS_BACKEND = {
@@ -302,6 +338,16 @@ KEYS_POLICY = {
     'version': 'version',
     'configuration': 'configuration',
     'enabled': 'enabled',
+}
+
+KEYS_OPEN_API = {
+    'productionPublicBaseURL': 'productionPublicBaseURL',
+    'stagingPublicBaseURL': 'stagingPublicBaseURL',
+    'productSystemName': 'productSystemName',
+    'privateBaseURL': 'privateBaseURL',
+    'prefixMatching': 'prefixMatching',
+    'privateAPIHostHeader': 'privateAPIHostHeader',
+    'privateAPISecretToken': 'privateAPISecretToken'
 }
 
 SPEC_SECRET = {

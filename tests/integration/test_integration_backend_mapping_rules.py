@@ -18,10 +18,10 @@ def test_should_read_mapping_rule(backend_mapping_rule, backend_mapping_rule_par
     asserts.assert_resource(resource)
     asserts.assert_resource_params(resource, backend_mapping_rule_params)
 
-def test_should_update_mapping_rule(service,
-        backend, backend_usage, updated_backend_mapping_rules_params, apicast_http_client):
+def test_should_update_mapping_rule(service, backend, backend_usage,
+        updated_backend_mapping_rules_params, application, apicast_http_client):
     resource = backend.mapping_rules.create(updated_backend_mapping_rules_params)
-    pattern = '/get/anything/test-foo'
+    pattern = '/anything/test-foo'
     resource['pattern'] = pattern
     resource.update()
     updated_resource = resource.read()
@@ -29,35 +29,36 @@ def test_should_update_mapping_rule(service,
 
     service.proxy.deploy()
 
-    response = apicast_http_client.get(path=pattern)
+    response = apicast_http_client.get(path=f"{backend_usage['path']}{pattern}")
     asserts.assert_http_ok(response)
 
 # end of tests important for CRD - CRU + list
 
 
-def test_should_mapping_rule_endpoint_return_ok(service,
-        backend_mapping_rule, backend_usage, apicast_http_client):
+def test_should_mapping_rule_endpoint_return_ok(service, backend,
+        backend_mapping_rule, backend_usage, application, apicast_http_client):
     service.proxy.deploy()
 
-    response = apicast_http_client.get(path=backend_mapping_rule['pattern'])
+    response = apicast_http_client.get(path=f"{backend_usage['path']}{backend_mapping_rule['pattern']}")
     asserts.assert_http_ok(response)
 
 
 def test_stop_processing_mapping_rules_once_first_one_is_met(service,
-        backend_usage, backend, updated_backend_mapping_rules_params, apicast_http_client):
+        backend_usage, backend, updated_backend_mapping_rules_params, application,
+        apicast_http_client):
     params_first = updated_backend_mapping_rules_params.copy()
-    params_first['pattern'] = '/get/anything/search'
+    params_first['pattern'] = '/anything/search'
     resource_first = backend.mapping_rules.create(params=params_first)
     assert resource_first.exists()
 
     params_second = updated_backend_mapping_rules_params.copy()
-    params_second['pattern'] = '/get/anything/{id}'
+    params_second['pattern'] = '/anything/{id}'
     resource_second = backend.mapping_rules.create(params=params_second)
     assert resource_second.exists()
 
     service.proxy.deploy()
 
-    response = apicast_http_client.get(path=params_first['pattern'])
+    response = apicast_http_client.get(path=f"{backend_usage['path']}{params_first['pattern']}")
     asserts.assert_http_ok(response)
 
     assert params_first['pattern'] in response.url

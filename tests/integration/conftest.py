@@ -115,8 +115,8 @@ def user(user_params, api):
 @pytest.fixture(scope='module')
 def account_params():
     suffix = get_suffix()
-    name = f"test-{suffix}"
-    return dict(name=name, username=name, org_name=name, monthly_billing_enabled=False, monthly_charging_enabled=False, email=f"name@name.none")
+    name = f"testacc{suffix}"
+    return dict(name=name, username=name, org_name=name, monthly_billing_enabled=False, monthly_charging_enabled=False, email=f"{name}@name.none")
 
 
 @pytest.fixture(scope='module')
@@ -125,6 +125,19 @@ def account(account_params, api):
     yield entity
     cleanup(entity)
 
+@pytest.fixture(scope='module')
+def acc_user(account):
+    return account.users.list()[-1]
+
+@pytest.fixture(scope='module')
+def acc_user2_params(account, acc_user):
+    name = acc_user['username'] + '2'
+    return dict(username=name, email=f"{name}@name.none", role='member', account_name=account['name'])
+
+
+@pytest.fixture(scope='module')
+def acc_user2(account, acc_user, acc_user2_params):
+    return account.users.create(acc_user2_params)
 
 @pytest.fixture(scope='module')
 def application_plan_params(service) -> dict:
@@ -134,9 +147,7 @@ def application_plan_params(service) -> dict:
 
 @pytest.fixture(scope='module')
 def application_plan(api, service, application_plan_params) -> ApplicationPlan:
-    #TODO revert this when app. plans are implemented
     #resource = service.app_plans.create(params=application_plan_params)
-    #resource = service.get_app_plan()
     resource = service.app_plans.list()[-1]
     yield resource
 
@@ -159,15 +170,24 @@ def application(account, application_plan, application_params) -> Application:
 def proxy(service) -> Proxy:
     return service.proxy.list()
 
-
 @pytest.fixture(scope='module')
-def backend_usage(service, backend) -> BackendUsage:
-    params = {
+def backend_usage_params(service, backend):
+    return {
         'service_id': service['id'],
         'backend_id': backend['id'],
         'path': '/get',
     }
-    resource = service.backend_usages.create(params=params)
+
+@pytest.fixture(scope='module')
+def backend_updated_usage_params(backend_usage_params):
+    ret = backend_usage_params.copy()
+    ret['path'] = '/post'
+    return ret
+
+
+@pytest.fixture(scope='module')
+def backend_usage(service, backend, backend_usage_params) -> BackendUsage:
+    resource = service.backend_usages.create(params=backend_usage_params)
     yield resource
     cleanup(resource)
 
@@ -179,27 +199,25 @@ def metric_params(service):
     return dict(friendly_name=friendly_name, name=name, unit='count')
 
 @pytest.fixture(scope='module')
-def backend_metric_params(backend):
+def backend_metric_params():
     suffix = get_suffix()
     friendly_name = f'test-metric-{suffix}'
     name = f'{friendly_name}'.replace('-', '_')
-    return dict(backend_id=backend['id'], friendly_name=friendly_name,
+    return dict(friendly_name=friendly_name,
                 name=name, unit='count')
 
 @pytest.fixture
 def updated_metric_params(metric_params):
     suffix = get_suffix()
     friendly_name = f'test-updated-metric-{suffix}'
-    metric_params['friendly_name'] = f'/anything/{friendly_name}'
-    metric_params['name'] = friendly_name.replace('-', '_')
+    metric_params['friendly_name'] = f'/get/{friendly_name}'
     return metric_params
 
 @pytest.fixture
 def backend_updated_metric_params(backend_metric_params):
     suffix = get_suffix()
     friendly_name = f'test-updated-metric-{suffix}'
-    backend_metric_params['friendly_name'] = f'/anything/{friendly_name}'
-    backend_metric_params['name'] = friendly_name.replace('-', '_')
+    backend_metric_params['friendly_name'] = f'/get/{friendly_name}'
     return backend_metric_params
 
 
@@ -211,9 +229,6 @@ def metric(service, metric_params) -> Metric:
     cleanup(resource)
 
 
-@pytest.fixture(scope='module')
-def hits_metric(service):
-    return service.metrics.read_by(name='hits')
 
 
 @pytest.fixture(scope='module')
@@ -235,7 +250,8 @@ def updated_method_params(method_params):
 
 
 @pytest.fixture(scope='module')
-def method(hits_metric, method_params):
+def method(service, method_params):
+    hits_metric = service.metrics.read_by_name('hits')
     resource = hits_metric.methods.create(params=method_params)
     yield resource
     cleanup(resource)
@@ -248,10 +264,11 @@ def get_mapping_rule_pattern():
 
 
 @pytest.fixture(scope='module')
-def mapping_rule_params(hits_metric):
+def mapping_rule_params(service):
     """
     Fixture for getting paramteres for mapping rule for product/service.
     """
+    hits_metric = service.metrics.read_by_name('hits')
     return dict(http_method='GET', pattern='/get', metric_id=hits_metric['id'],
                 delta=1)
 
@@ -262,9 +279,8 @@ def backend_mapping_rule_params(backend, backend_metric):
     Fixture for getting paramteres for mapping rule for backend.
     """
     back = backend_metric['id']
-    return dict(http_method='GET', pattern='/get/anything/id', metric_id=back,
+    return dict(http_method='GET', pattern='/anything/get/id', metric_id=back,
                 delta=1)
-    #return dict(http_method='GET', pattern='/get/anything/id', metric_id=backend_metric['id'],
 
 @pytest.fixture
 def updated_mapping_rules_params(mapping_rule_params):
@@ -273,7 +289,7 @@ def updated_mapping_rules_params(mapping_rule_params):
     """
     pattern = get_mapping_rule_pattern()
     params = mapping_rule_params.copy()
-    params['pattern'] = f'/get/anything/{pattern}'
+    params['pattern'] = f'/anything/get/{pattern}'
     return params
 
 @pytest.fixture
@@ -283,7 +299,7 @@ def updated_backend_mapping_rules_params(backend_mapping_rule_params):
     """
     pattern = get_mapping_rule_pattern()
     params = backend_mapping_rule_params.copy()
-    params['pattern'] = f'/get/anything/{pattern}'
+    params['pattern'] = f'/anything/get/{pattern}'
     return params
 
 
@@ -323,9 +339,10 @@ def create_mapping_rule(service):
 
     yield _create
 
-    for rule in rules:
-        if rule.exists():
-            cleanup(rule)
+    # TODO
+    #for rule in rules:
+    #    if rule.exists():
+    #        cleanup(rule)
 
 @pytest.fixture
 def create_backend_mapping_rule(backend):
