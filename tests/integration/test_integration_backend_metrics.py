@@ -7,23 +7,23 @@ from tests.integration import asserts
 
 # tests important for CRD - CRU + list
 
-#def test_should_list_metrics(backend, backend_metric):
-#    resources = backend.metrics.list()
-#    assert len(resources) > 0
-#
-#def test_should_create_metric(backend_metric, backend_metric_params):
-#    asserts.assert_resource(backend_metric)
-#    asserts.assert_resource_params(backend_metric, backend_metric_params)
-#
-#def test_should_read_metric(backend_metric, backend_metric_params):
-#    resource = backend_metric.read()
-#    asserts.assert_resource(resource)
-#    asserts.assert_resource_params(resource, backend_metric_params)
-#
-#def test_should_update_metric(backend_metric, backend_updated_metric_params):
-#    resource = backend_metric.update(params=backend_updated_metric_params)
-#    asserts.assert_resource(resource)
-#    asserts.assert_resource_params(resource, backend_updated_metric_params)
+def test_should_list_metrics(backend, backend_metric):
+    resources = backend.metrics.list()
+    assert len(resources) > 0
+
+def test_should_create_metric(backend_metric, backend_metric_params):
+    asserts.assert_resource(backend_metric)
+    asserts.assert_resource_params(backend_metric, backend_metric_params)
+
+def test_should_read_metric(backend_metric, backend_metric_params):
+    resource = backend_metric.read()
+    asserts.assert_resource(resource)
+    asserts.assert_resource_params(resource, backend_metric_params)
+
+def test_should_update_metric(backend_metric, backend_updated_metric_params):
+    resource = backend_metric.update(params=backend_updated_metric_params)
+    asserts.assert_resource(resource)
+    asserts.assert_resource_params(resource, backend_updated_metric_params)
 
 # end of tests important for CRD - CRU + list
 

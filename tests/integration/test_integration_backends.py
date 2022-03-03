@@ -9,6 +9,7 @@ def test_3scale_url_is_set(api, url, token):
     assert api.url is not None
 
 
+# tests important for CRD - CRU + list
 def test_backends_list(api):
     backends = api.backends.list()
     assert len(backends) >= 1
@@ -40,6 +41,8 @@ def test_backend_can_be_updated(api, backend):
     updated = backend.read()
     assert updated['description'] == '222'
     assert backend['description'] == '222'
+
+# end of tests important for CRD - CRU + list
 
 
 def test_backend_metrics_list(backend, backend_metric):

@@ -2,30 +2,30 @@
 Module with ThreeScaleClient for CRD.
 """
 
-import logging
 import openshift as ocp
-from threescale_api_crd import resources, defaults
 import threescale_api
+from threescale_api_crd import resources
 
 class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
     """
     Threescale client for CRD.
     """
-    def __init__(self, ocp_provider_ref, *args, **kwargs):
-        threescale_api.client.ThreeScaleClient.__init__(self, *args, **kwargs)
+    def __init__(self, ocp_provider_ref, url, token, *args, **kwargs):
+        super().__init__(url, token, *args, **kwargs)
         self._ocp_provider_ref = ocp_provider_ref
         self._ocp_namespace = ocp.get_project_name()
-        self._services = resources.Services(crd_client=self, instance_klass=resources.Service)
+        self._services = resources.Services(parent=self, instance_klass=resources.Service)
         self._active_docs = resources.ActiveDocs(
-            crd_client=self,
+            parent=self,
             instance_klass=resources.ActiveDoc)
         self._policy_registry = resources.PoliciesRegistry(
-            self,
+            parent=self,
             instance_klass=resources.PolicyRegistry)
-        self._backends = resources.Backends(crd_client=self, instance_klass=resources.Backend)
-        self._accounts = resources.Accounts(self, instance_klass=resources.Account)
-        self._accounts_users = resources.AccountUsers(self, instance_klass=resources.AccountUser)
-        self._openapis = resources.OpenApis(self, instance_klass=resources.OpenApi)
+        self._backends = resources.Backends(parent=self, instance_klass=resources.Backend)
+        self._accounts = resources.Accounts(parent=self, instance_klass=resources.Account)
+        self._accounts_users = resources.AccountUsers(parent=self, instance_klass=resources.AccountUser)
+        self._openapis = resources.OpenApis(parent=self, instance_klass=resources.OpenApi)
+        self._tenants = resources.Tenants(parent=self, instance_klass=resources.Tenant)
 
     @property
     def services(self) -> resources.Services:
@@ -54,7 +54,7 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
         Returns(resources.Backend): Backend client
         """
         return self._backends
-    
+
     @property
     def accounts(self) -> resources.Accounts:
         """Gets accounts client
@@ -68,13 +68,20 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
         Returns(resources.AccountUsers): Account Users client
         """
         return self._accounts_users
-    
+
     @property
-    def open_apis(self) -> resources.OpenApis:
+    def openapis(self) -> resources.OpenApis:
         """Gets AopenApis client
         Returns(resources.OpenApis): OpenApis client
         """
         return self._openapis
+
+    @property
+    def tenants(self) -> resources.Tenants:
+        """Gets tenants client
+        Returns(resources.Tenants): Tenants client
+        """
+        return self._tenants
 
     @property
     def ocp_provider_ref(self):

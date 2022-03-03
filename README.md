@@ -17,25 +17,38 @@ and to have valid `oc` tool session.
 
 ### Finished integration unit tests
 
+- AccountUsers
+- Accounts
 - ActiveDoc
-- Service
-- Backend
-- PolicyRegistry
 - ApplicationPlan
+- Backend
+- BackendMappingRule
+- BackendMetric
+- BackendUsage
+- MappingRule
+- Metric
+- OpenApi
 - Policies
 - PolicyRegistry
 - Proxy
-- Accounts
-- AccountUsers
-- BackendMappingRule
-- BackendUsage
-- Metric
-- MappingRule
-- BackendMetric
+- Service
 
 Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 ./tests/integration/test_integration_activedocs.py ./tests/integration/test_integration_services.py ./tests/integration/test_integration_backends.py ./tests/integration/test_integration_policy_registry.py ./tests/integration/test_integration_application_plan.py ./tests/integration/test_integration_policies.py ./tests/integration/test_integration_accounts.py ./tests/integration/test_integration_backend_mapping_rules.py -vvvv -s |& tee f`
  
 ### TODO
+
+- add support for tenants
+
+- add disabling CRD - self.client.CRD_IMPLEMENTED = False is wrong
+- create unit integration tests for:
+  - Application
+  - Limits
+  - pricing rules
+  - metrics
+  - methods
+  - tenants
+  - ProductDeploymentSpec
+  - AuthenticationSpec
 
 - finish test_should_remove_limits_and_pricings_on_metric_deletion when limits and pricing rules are implemented
 - create jenkins job for running unit tests
@@ -47,4 +60,4 @@ Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 ./t
 - add support for Methods, Limits, PricingRules
 - if there is supported limits, add more unit tests for metrics/backendmetrics
 - clean up system_name and name attibutes for various objects
-- create unit integration tests for
+

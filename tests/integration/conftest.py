@@ -1,6 +1,5 @@
 import os
 import secrets
-import time
 from distutils.util import strtobool
 
 import pytest
@@ -16,10 +15,12 @@ from threescale_api_crd.resources import (Service, Metric, BackendUsage, Backend
                                           Backend, ActiveDoc, PolicyRegistry, MappingRule)
 load_dotenv()
 
+
 def cleanup(resource):
-    #resource.delete()
-    #assert not resource.exists()
+    # resource.delete()
+    # assert not resource.exists()
     pass
+
 
 def get_suffix() -> str:
     return secrets.token_urlsafe(8)
@@ -48,7 +49,11 @@ def master_token() -> str:
 @pytest.fixture(scope="session")
 def ssl_verify() -> bool:
     ssl_verify = os.getenv('THREESCALE_SSL_VERIFY', 'false')
-    return bool(strtobool(ssl_verify))
+    ssl_verify = bool(strtobool(ssl_verify))
+    if not ssl_verify:
+        import urllib3
+        urllib3.disable_warnings()
+    return ssl_verify
 
 
 @pytest.fixture(scope='session')
@@ -65,20 +70,22 @@ def ocp_provider_ref() -> str:
 def api(url: str, token: str,
         ssl_verify: bool, ocp_provider_ref: str) -> threescale_api_crd.ThreeScaleClientCRD:
     return threescale_api_crd.ThreeScaleClientCRD(url=url, token=token,
-                                           ssl_verify=ssl_verify,
-                                           ocp_provider_ref=ocp_provider_ref)
+                                                  ssl_verify=ssl_verify,
+                                                  ocp_provider_ref=ocp_provider_ref)
+
 
 @pytest.fixture(scope='session')
 def api_origin(url: str, token: str,
-        ssl_verify: bool, ocp_provider_ref: str) -> threescale_api.ThreeScaleClient:
+               ssl_verify: bool, ocp_provider_ref: str) -> threescale_api.ThreeScaleClient:
     return threescale_api.ThreeScaleClient(url=url, token=token,
                                            ssl_verify=ssl_verify)
 
+
 @pytest.fixture(scope='session')
 def master_api(master_url: str, master_token: str,
-        ssl_verify: bool, ocp_provider_ref: str) -> threescale_api_crd.ThreeScaleClientCRD:
+               ssl_verify: bool, ocp_provider_ref: str) -> threescale_api_crd.ThreeScaleClientCRD:
     return threescale_api_crd.ThreeScaleClientCRD(url=master_url, token=master_token,
-                                           ssl_verify=ssl_verify, ocp_provider_ref=ocp_provider_ref)
+                                                  ssl_verify=ssl_verify, ocp_provider_ref=ocp_provider_ref)
 
 
 @pytest.fixture(scope='module')
@@ -99,6 +106,7 @@ def service(service_params, api) -> Service:
     yield service
     cleanup(service)
 
+
 @pytest.fixture(scope='module')
 def user_params():
     suffix = get_suffix()
@@ -112,11 +120,13 @@ def user(user_params, api):
     yield entity
     cleanup(entity)
 
+
 @pytest.fixture(scope='module')
 def account_params():
     suffix = get_suffix()
     name = f"testacc{suffix}"
-    return dict(name=name, username=name, org_name=name, monthly_billing_enabled=False, monthly_charging_enabled=False, email=f"{name}@name.none")
+    return dict(name=name, username=name, org_name=name, monthly_billing_enabled=False,
+                monthly_charging_enabled=False, email=f"{name}@name.none")
 
 
 @pytest.fixture(scope='module')
@@ -125,9 +135,11 @@ def account(account_params, api):
     yield entity
     cleanup(entity)
 
+
 @pytest.fixture(scope='module')
 def acc_user(account):
     return account.users.list()[-1]
+
 
 @pytest.fixture(scope='module')
 def acc_user2_params(account, acc_user):
@@ -139,6 +151,7 @@ def acc_user2_params(account, acc_user):
 def acc_user2(account, acc_user, acc_user2_params):
     return account.users.create(acc_user2_params)
 
+
 @pytest.fixture(scope='module')
 def application_plan_params(service) -> dict:
     suffix = get_suffix()
@@ -147,7 +160,7 @@ def application_plan_params(service) -> dict:
 
 @pytest.fixture(scope='module')
 def application_plan(api, service, application_plan_params) -> ApplicationPlan:
-    #resource = service.app_plans.create(params=application_plan_params)
+    # resource = service.app_plans.create(params=application_plan_params)
     resource = service.app_plans.list()[-1]
     yield resource
 
@@ -170,6 +183,7 @@ def application(account, application_plan, application_params) -> Application:
 def proxy(service) -> Proxy:
     return service.proxy.list()
 
+
 @pytest.fixture(scope='module')
 def backend_usage_params(service, backend):
     return {
@@ -177,6 +191,7 @@ def backend_usage_params(service, backend):
         'backend_id': backend['id'],
         'path': '/get',
     }
+
 
 @pytest.fixture(scope='module')
 def backend_updated_usage_params(backend_usage_params):
@@ -191,12 +206,14 @@ def backend_usage(service, backend, backend_usage_params) -> BackendUsage:
     yield resource
     cleanup(resource)
 
+
 @pytest.fixture(scope='module')
 def metric_params(service):
     suffix = get_suffix()
     friendly_name = f'test-metric-{suffix}'
     name = f'{friendly_name}'.replace('-', '_')
     return dict(friendly_name=friendly_name, name=name, unit='count')
+
 
 @pytest.fixture(scope='module')
 def backend_metric_params():
@@ -206,12 +223,14 @@ def backend_metric_params():
     return dict(friendly_name=friendly_name,
                 name=name, unit='count')
 
+
 @pytest.fixture
 def updated_metric_params(metric_params):
     suffix = get_suffix()
     friendly_name = f'test-updated-metric-{suffix}'
     metric_params['friendly_name'] = f'/get/{friendly_name}'
     return metric_params
+
 
 @pytest.fixture
 def backend_updated_metric_params(backend_metric_params):
@@ -221,14 +240,11 @@ def backend_updated_metric_params(backend_metric_params):
     return backend_metric_params
 
 
-
 @pytest.fixture(scope='module')
 def metric(service, metric_params) -> Metric:
     resource = service.metrics.create(params=metric_params)
     yield resource
     cleanup(resource)
-
-
 
 
 @pytest.fixture(scope='module')
@@ -250,11 +266,16 @@ def updated_method_params(method_params):
 
 
 @pytest.fixture(scope='module')
-def method(service, method_params):
-    hits_metric = service.metrics.read_by_name('hits')
+def method(hits_metric, method_params):
+    import pdb; pdb.set_trace()
     resource = hits_metric.methods.create(params=method_params)
     yield resource
     cleanup(resource)
+
+
+@pytest.fixture(scope='module')
+def hits_metric(service):
+    return service.metrics.read_by(name='hits')
 
 
 def get_mapping_rule_pattern():
@@ -282,6 +303,7 @@ def backend_mapping_rule_params(backend, backend_metric):
     return dict(http_method='GET', pattern='/anything/get/id', metric_id=back,
                 delta=1)
 
+
 @pytest.fixture
 def updated_mapping_rules_params(mapping_rule_params):
     """
@@ -291,6 +313,7 @@ def updated_mapping_rules_params(mapping_rule_params):
     params = mapping_rule_params.copy()
     params['pattern'] = f'/anything/get/{pattern}'
     return params
+
 
 @pytest.fixture
 def updated_backend_mapping_rules_params(backend_mapping_rule_params):
@@ -312,6 +335,7 @@ def mapping_rule(service, mapping_rule_params) -> MappingRule:
     yield resource
     cleanup(resource)
 
+
 @pytest.fixture(scope='module')
 def backend_mapping_rule(backend, backend_mapping_rule_params) -> BackendMappingRule:
     """
@@ -320,6 +344,7 @@ def backend_mapping_rule(backend, backend_mapping_rule_params) -> BackendMapping
     resource = backend.mapping_rules.create(params=backend_mapping_rule_params)
     yield resource
     cleanup(resource)
+
 
 @pytest.fixture
 def create_mapping_rule(service):
@@ -340,9 +365,10 @@ def create_mapping_rule(service):
     yield _create
 
     # TODO
-    #for rule in rules:
-    #    if rule.exists():
-    #        cleanup(rule)
+    # for rule in rules:
+    #     if rule.exists():
+    #         cleanup(rule)
+
 
 @pytest.fixture
 def create_backend_mapping_rule(backend):
@@ -366,6 +392,7 @@ def create_backend_mapping_rule(backend):
         if rule.exists():
             cleanup(rule)
 
+
 @pytest.fixture(scope='module')
 def backend_params(api_backend):
     """
@@ -376,6 +403,7 @@ def backend_params(api_backend):
                 private_endpoint=api_backend,
                 description='111')
 
+
 @pytest.fixture(scope='module')
 def backend(backend_params, api) -> Backend:
     """
@@ -385,6 +413,7 @@ def backend(backend_params, api) -> Backend:
     yield backend
     cleanup(backend)
 
+
 @pytest.fixture(scope='module')
 def backend_metric(backend, metric_params) -> Metric:
     """
@@ -393,6 +422,7 @@ def backend_metric(backend, metric_params) -> Metric:
     resource = backend.metrics.create(params=metric_params)
     yield resource
     cleanup(resource)
+
 
 @pytest.fixture(scope="module")
 def custom_tenant(master_api, tenant_params):
@@ -408,6 +438,7 @@ def custom_tenant(master_api, tenant_params):
     with pytest.raises(errors.ApiClientError):
         resource.delete()
 
+
 @pytest.fixture(scope="module")
 def tenant_params():
     """
@@ -418,9 +449,13 @@ def tenant_params():
                 email="email@invalid.invalid",
                 org_name="org")
 
+
 @pytest.fixture(scope='module')
 def active_docs_body():
-    return """{"openapi": "3.0.0", "info": {"version": "1.0.0", "title": "example"}, "paths": {}, "components":{}}"""
+    return """{"openapi":"3.0.0","info":{"version":"1.0.0","title":"example"},"paths":{
+            "/pets":{"get":{"summary":"List all pets","operationId":"listPets","responses":
+            {"200":{"description":"A paged array of pets"}}}}},"components":{}}"""
+
 
 @pytest.fixture(scope='module')
 def active_docs_params(active_docs_body):
@@ -441,20 +476,50 @@ def active_doc(api, service, active_docs_params) -> ActiveDoc:
     yield resource
     cleanup(resource)
 
+
+@pytest.fixture(scope='module')
+def openapi_params(active_docs_body):
+    suffix = get_suffix()
+    name = f"test-{suffix}"
+    params = dict(
+        name=name,
+        productionPublicBaseURL='http://productionPublicBaseURL',
+        stagingPublicBaseURL='http://stagingPublicBaseURL',
+        productSystemName='productsystemname', # https://issues.redhat.com/browse/THREESCALE-8128
+        privateBaseURL='http://privateBaseURL',
+        prefixMatching=True,
+        privateAPIHostHeader='privateAPIHostHeader',
+        privateAPISecretToken='privateAPISecretToken',
+        body=active_docs_body)
+    return params
+
+
+@pytest.fixture(scope='module')
+def openapi(api, openapi_params):
+    """
+    Fixture for getting OpenApi.
+    """
+    resource = api.openapis.create(params=openapi_params.copy())
+    yield resource
+    cleanup(resource)
+
+
 @pytest.fixture(scope='module')
 def webhook(api):
     return api.webhooks
 
+
 @pytest.fixture(scope='session')
 def policy_registry_schema():
     return {"summary": "This is just an example.", "description": ["This policy is just an example\
-            how to write your custom policy.\nAnd this is next line", "And next item."],\
-            "name": "APIcast Example Policy", "$schema":\
-            "http://apicast.io/policy-v1/schema#manifest#", "version": "0.1", "configuration": { \
-            "properties": {"property1": { "description": "list of properties1", "items": {\
-            "properties": {"value1": { "description": "Value1", "type": "string"}, "value2": {\
-            "description": "Value2", "type": "string"}}, "required": ["value1"], "type": "object"\
+            how to write your custom policy.\nAnd this is next line", "And next item."],
+            "name": "APIcast Example Policy", "$schema":
+            "http://apicast.io/policy-v1/schema#manifest#", "version": "0.1", "configuration": {
+            "properties": {"property1": {"description": "list of properties1", "items": {
+            "properties": {"value1": {"description": "Value1", "type": "string"}, "value2": {
+            "description": "Value2", "type": "string"}}, "required": ["value1"], "type": "object"
             }, "type": "array"}}, "type": "object"}}
+
 
 @pytest.fixture(scope='module')
 def policy_registry_params(policy_registry_schema):
@@ -472,3 +537,28 @@ def policy_registry(api, policy_registry_params) -> PolicyRegistry:
     resource = api.policy_registry.create(params=acs)
     yield resource
     cleanup(resource)
+
+# @pytest.fixture(scope="module")
+# def custom_tenant(master_api, tenant_params):
+#     """
+#     Fixture for getting the custom tenant.
+#     """
+#     resource = master_api.tenants.create(tenant_params)
+#     yield resource
+#     resource.delete()
+#     # tenants are not deleted immediately, they are scheduled for the deletion
+#     # the exists method returns ok response, even if the tenant is scheduled for deletion
+#     # However, the deletion of the tenant fails, if already deleted
+#     with pytest.raises(errors.ApiClientError):
+#         resource.delete()
+#
+#
+# @pytest.fixture(scope="module")
+# def tenant_params():
+#     """
+#     Params for custom tenant
+#     """
+#     return dict(username="tenant",
+#                 password="123456",
+#                 email="email@invalid.invalid",
+#                 org_name="org")

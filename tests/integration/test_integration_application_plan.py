@@ -28,7 +28,7 @@ def test_application_plan_can_be_read_by_name(service, application_plan_params, 
 @pytest.fixture(scope='module')
 def update_params():
     suffix = secrets.token_urlsafe(8)
-    return dict(cost_per_month='12.00', setup_fee='50.00')
+    return dict(cost_per_month='12.00', setup_fee='50.00', publish=True)
 
 def test_application_plan_can_be_updated(service, application_plan, update_params):
     updated_app_plan = application_plan.update(update_params)

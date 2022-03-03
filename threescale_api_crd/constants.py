@@ -38,10 +38,11 @@ SPEC_SERVICE = {
             'AppPlanTest': {
                 'setupFee': '0.00',
                 'costMonth': '0.00',
+                'published': True,
                 }
             },
         },
-        'policies': [] 
+        'policies': []
     }
 
 SPEC_PROXY = {}
@@ -95,6 +96,7 @@ SPEC_APP_PLANS = {
         'trialPeriod': None,
         'setupFee': None,
         'costMonth': None,
+        'publish': True,
         # TODO pricingRules
         # TODO limits
         }
@@ -198,17 +200,6 @@ SPEC_POLICY = {
         }
     }
 
-SPEC_OPEN_API = {
-    'apiVersion': 'capabilities.3scale.net/v1beta1',
-    'kind': 'OpenApi',
-    'metadata': {
-        'name': None,
-        'namespace': None,
-        },
-    'spec': {
-        'providerAccountRef': {
-            'name': None,
-            },
 #           'openapiRef': {
 #            'url': None,
 #            },
@@ -218,7 +209,44 @@ SPEC_OPEN_API = {
 #        'privateBaseURL': None,
 #        'prefixMatching': None,
 #        'privateAPIHostHeader': None,
-#        'privateAPISecretToken': None 
+#        'privateAPISecretToken': None
+
+SPEC_OPEN_API = {
+    'apiVersion': 'capabilities.3scale.net/v1beta1',
+    'kind': 'OpenAPI',
+    'metadata': {
+        'name': None,
+        'namespace': None,
+        },
+    'spec': {
+        'providerAccountRef': {
+            'name': None,
+            },
+    }
+}
+
+SPEC_TENANT = {
+    'apiVersion': 'capabilities.3scale.net/v1alpha1',
+    'kind': 'Tenant',
+    'metadata': {
+        'name': None,
+        'namespace': None,
+        },
+    'spec': {
+        'organizationName': None,
+        'email': None,
+        'username': None,
+        'systemMasterUrl': None,
+        'masterCredentialsRef': {
+            'name': None,
+            },
+        'passwordCredentialsRef': {
+            'name': None,
+            },
+        'tenantSecretRef': {
+            'name': None,
+            'namespace': None
+            }
     }
 }
 
@@ -234,7 +262,38 @@ KEYS_SERVICE = {
     'policies': 'policies',
 }
 
-KEYS_PROXY = {
+KEYS_PROXY_RESPONSES = {
+    'error_auth_failed': 'errorAuthFailed',
+    'error_auth_missing': 'errorAuthMissing',
+        'systemName': None,
+        'description': None,
+        'deployment': {
+            'apicastHosted': {
+                'authentication': {
+                    'userkey': {
+                        'authUserKey': 'token',
+                        'credentials': 'query',
+                        'gatewayResponse': {
+                            },
+                        },
+                    },
+                },
+            }
+    }
+
+KEYS_SERVICE = {
+    'description': 'description',
+    'name': 'name',
+    'system_name': 'systemName',
+    'mapping_rules': 'mappingRules',
+    'metrics': 'metrics',
+    'backend_usages': 'backendUsages',
+    'application_plans': 'applicationPlans',
+    'deployment': 'deployment',
+    'policies': 'policies',
+}
+
+KEYS_PROXY_RESPONSES = {
     'error_auth_failed': 'errorAuthFailed',
     'error_auth_missing': 'errorAuthMissing',
     'error_headers_auth_failed': 'errorHeadersAuthFailed',
@@ -247,18 +306,31 @@ KEYS_PROXY = {
     'error_status_auth_missing': 'errorStatusAuthMissing',
     'error_status_limits_exceeded': 'errorStatusLimitsExceeded',
     'error_status_no_match': 'errorStatusNoMatch',
+    }
+
+KEYS_PROXY_SECURITY = {
+    'secret_token': 'secretToken',
+    'host_header': 'hostHeader',
+    }
+
+KEYS_PROXY = {
     'credentials_location': 'credentials',
     'endpoint': 'productionPublicBaseURL',
     'sandbox_endpoint': 'stagingPublicBaseURL',
     'auth_user_key': 'authUserKey',
     'auth_app_key': 'appKey',
     'auth_app_id': 'appID',
-    'secret_token': 'secretToken',
-    'host_header': 'hostHeader',
     'oidc_issuer_endpoint': 'issuerEndpoint',
     'oidc_issuer_type': 'issuerType',
     'jwt_claim_with_client_id': 'jwtClaimWithClientID',
     'jwt_claim_with_client_id_type': 'jwtClaimWithClientIDType',
+        }
+
+KEYS_OIDC = {
+    'standard_flow_enabled': 'standardFlowEnabled',
+    'implicit_flow_enabled': 'implicitFlowEnabled',
+    'service_accounts_enabled': 'serviceAccountsEnabled',
+    'direct_access_grants_enabled': 'directAccessGrantsEnabled',
         }
 
 KEYS_BACKEND = {
@@ -310,6 +382,7 @@ KEYS_APP_PLANS = {
     'trial_period_days': 'trialPeriod',
     'setup_fee': 'setupFee',
     'cost_per_month': 'costMonth',
+    'publish': 'published',
     # missing state, cancellation_period, default, custom
 }
 
@@ -348,6 +421,14 @@ KEYS_OPEN_API = {
     'prefixMatching': 'prefixMatching',
     'privateAPIHostHeader': 'privateAPIHostHeader',
     'privateAPISecretToken': 'privateAPISecretToken'
+}
+
+KEYS_TENANT = {
+    'org_name': 'organizationName',
+    'support_email': 'email',
+    'username': 'username',
+    'system_master_url': 'systemMasterUrl',
+    'tenantSecretRef': 'tenantSecretRef'
 }
 
 SPEC_SECRET = {
