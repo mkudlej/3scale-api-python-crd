@@ -267,7 +267,6 @@ def updated_method_params(method_params):
 
 @pytest.fixture(scope='module')
 def method(hits_metric, method_params):
-    import pdb; pdb.set_trace()
     resource = hits_metric.methods.create(params=method_params)
     yield resource
     cleanup(resource)
@@ -435,8 +434,8 @@ def custom_tenant(master_api, tenant_params):
     # tenants are not deleted immediately, they are scheduled for the deletion
     # the exists method returns ok response, even if the tenant is scheduled for deletion
     # However, the deletion of the tenant fails, if already deleted
-    with pytest.raises(errors.ApiClientError):
-        resource.delete()
+    #with pytest.raises(errors.ApiClientError):
+    #    resource.delete()
 
 
 @pytest.fixture(scope="module")
@@ -444,8 +443,8 @@ def tenant_params():
     """
     Params for custom tenant
     """
-    return dict(username="tenant",
-                password="123456",
+    return dict(name="tenant17",
+                admin_password="123456",
                 email="email@invalid.invalid",
                 org_name="org")
 
@@ -537,28 +536,3 @@ def policy_registry(api, policy_registry_params) -> PolicyRegistry:
     resource = api.policy_registry.create(params=acs)
     yield resource
     cleanup(resource)
-
-# @pytest.fixture(scope="module")
-# def custom_tenant(master_api, tenant_params):
-#     """
-#     Fixture for getting the custom tenant.
-#     """
-#     resource = master_api.tenants.create(tenant_params)
-#     yield resource
-#     resource.delete()
-#     # tenants are not deleted immediately, they are scheduled for the deletion
-#     # the exists method returns ok response, even if the tenant is scheduled for deletion
-#     # However, the deletion of the tenant fails, if already deleted
-#     with pytest.raises(errors.ApiClientError):
-#         resource.delete()
-#
-#
-# @pytest.fixture(scope="module")
-# def tenant_params():
-#     """
-#     Params for custom tenant
-#     """
-#     return dict(username="tenant",
-#                 password="123456",
-#                 email="email@invalid.invalid",
-#                 org_name="org")

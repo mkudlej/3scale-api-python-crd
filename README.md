@@ -19,25 +19,24 @@ and to have valid `oc` tool session.
 
 - AccountUsers
 - Accounts
-- ActiveDoc
-- ApplicationPlan
-- Backend
-- BackendMappingRule
-- BackendMetric
-- BackendUsage
-- MappingRule
-- Metric
-- OpenApi
+- ActiveDocs
+- ApplicationPlans
+- Backends
+- BackendMappingRules
+- BackendMetrics
+- BackendUsages
+- MappingRules
+- Metrics
+- OpenApis
 - Policies
-- PolicyRegistry
-- Proxy
-- Service
+- PolicyRegistries
+- Proxies
+- Services
+- Tenants
 
-Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 ./tests/integration/test_integration_activedocs.py ./tests/integration/test_integration_services.py ./tests/integration/test_integration_backends.py ./tests/integration/test_integration_policy_registry.py ./tests/integration/test_integration_application_plan.py ./tests/integration/test_integration_policies.py ./tests/integration/test_integration_accounts.py ./tests/integration/test_integration_backend_mapping_rules.py -vvvv -s |& tee f`
+Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 ./tests/integration/test_integration_activedocs.py ./tests/integration/test_integration_services.py ./tests/integration/test_integration_backends.py ./tests/integration/test_integration_policy_registry.py ./tests/integration/test_integration_application_plan.py ./tests/integration/test_integration_policies.py ./tests/integration/test_integration_accounts.py ./tests/integration/test_integration_backend_mapping_rules.py ./tests/integration/test_integration_custom_tenant.py -vvvv -s |& tee f`
  
 ### TODO
-
-- add support for tenants
 
 - add disabling CRD - self.client.CRD_IMPLEMENTED = False is wrong
 - create unit integration tests for:
@@ -60,4 +59,3 @@ Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 ./t
 - add support for Methods, Limits, PricingRules
 - if there is supported limits, add more unit tests for metrics/backendmetrics
 - clean up system_name and name attibutes for various objects
-

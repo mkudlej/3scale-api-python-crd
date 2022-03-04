@@ -235,7 +235,7 @@ SPEC_TENANT = {
     'spec': {
         'organizationName': None,
         'email': None,
-        'username': None,
+        'username': 'admin',
         'systemMasterUrl': None,
         'masterCredentialsRef': {
             'name': None,
@@ -425,10 +425,12 @@ KEYS_OPEN_API = {
 
 KEYS_TENANT = {
     'org_name': 'organizationName',
-    'support_email': 'email',
+    'email': 'email',
     'username': 'username',
     'system_master_url': 'systemMasterUrl',
-    'tenantSecretRef': 'tenantSecretRef'
+    'tenantSecretRef': 'tenantSecretRef',
+    'passwordCredentialsRef': 'passwordCredentialsRef',
+    'masterCredentialsRef': 'masterCredentialsRef'
 }
 
 SPEC_SECRET = {

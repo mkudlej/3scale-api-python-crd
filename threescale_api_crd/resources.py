@@ -576,35 +576,43 @@ class Tenants(DefaultClientCRD, threescale_api.resources.Tenants):
 
     def before_create(self, params, spec):
         """Called before create."""
-#        if 'service_id' in params.keys():
-#            ide = int(params.pop('service_id'))
-#            sys_name = Service.id_to_system_name.get(ide, None)
-#            if not sys_name:
-#                sys_name = self.parent.services.read(ide)['system_name']
-#            spec['spec']['productSystemName'] = sys_name
-#        if 'body' in params.keys():
-#            params['secret-name'] = params['name'] + 'secret'
-#            OpenApiRef.create_secret_if_needed(params, self.threescale_client.ocp_namespace)
-#            spec['spec']['activeDocOpenAPIRef'] = {}
-#            spec['spec']['activeDocOpenAPIRef']['secretRef'] = {}
-#            spec['spec']['activeDocOpenAPIRef']['secretRef']['name'] = params['secret-name']
+        spec['spec']['systemMasterUrl'] = self.threescale_client.url
+        # create master credentials secret
+        mast_sec_name = params['name'] + 'mastsec'
+        mas_params = { 'MASTER_ACCESS_TOKEN': self.threescale_client.token }
+        Tenants.create_secret(mast_sec_name, self.threescale_client.ocp_namespace, mas_params)
+        spec['spec']['masterCredentialsRef']['name'] = mast_sec_name
+        # create tenant admin secret
+        admin_sec_name = params['name'] + 'adminsec'
+        admin_params = { 'admin_password': params['admin_password'] }
+        Tenants.create_secret(admin_sec_name, self.threescale_client.ocp_namespace, admin_params)
+        spec['spec']['passwordCredentialsRef']['name'] = admin_sec_name
+
+        # tenant sec. ref. 
+        spec['spec']['tenantSecretRef'] = {'name': params['name'] + 'tenant', 'namespace': self.threescale_client.ocp_namespace}
 
     def before_update(self, new_params, resource):
-        """Called before update."""
-#        if 'service_id' in new_params.keys():
-#            ide = int(new_params.pop('service_id'))
-#            sys_name = Service.id_to_system_name.get(ide, None)
-#            if not sys_name:
-#                sys_name = self.parent.services.read(ide)['system_name']
-#            new_params[self.KEYS['service_id']] = sys_name
-#        if 'body' in new_params.keys():
-#            if 'secret-name' not in new_params:
-#                new_params['secret-name'] = new_params['name'] + 'secret'
-#            OpenApiRef.create_secret_if_needed(new_params, self.threescale_client.ocp_namespace)
-#            new_params['activeDocOpenAPIRef'] = {}
-#            new_params['activeDocOpenAPIRef']['secretRef'] = {}
-#            new_params['activeDocOpenAPIRef']['secretRef']['name'] = new_params['secret-name']
+        """Called before update. Only basic attrs. can be updated, sec. references update is not implemented because it is not part of origin client."""
+        # there are two folds 'signup' and 'account' and new_params should be updated properly
+        tmp = new_params.pop('signup')
+        new_pars = tmp.pop('account')
+        new_pars.update(new_params) 
+        new_params.clear()
+        new_params.update(new_pars)
 
+    @staticmethod
+    def create_secret(name, namespace, params):
+        """Creates secret if it is needed"""
+        spec_sec = copy.deepcopy(constants.SPEC_SECRET)
+        spec_sec['metadata']['name'] = name
+        spec_sec['metadata']['namespace'] = namespace
+        for key, value in params.items():
+            spec_sec['data'][key] = base64.b64encode(str(value).encode('ascii')).decode('ascii')
+        result = ocp.create(spec_sec)
+        assert result.status() == 0
+    
+    def read(self, entity_id, **kwargs):
+        return DefaultClientCRD.fetch(self, entity_id, **kwargs)
 
 
 # Resources
@@ -895,7 +903,7 @@ class OpenApiRef():
 
     @staticmethod
     def create_secret_if_needed(params, namespace):
-        """Creates secret if it is needed"""
+        """Creates secret for tenant."""
         body_ascii = str(params['body']).encode('ascii')
         body_enc = base64.b64encode(body_ascii)
         spec_sec = copy.deepcopy(constants.SPEC_SECRET)
@@ -1370,12 +1378,11 @@ class Tenant(DefaultResourceCRD, threescale_api.resources.Tenant):
     CRD resource for Policy.
     """
     FOLD = ["signup", "account"]
-    def __init__(self, entity_name='org_name', **kwargs):
+    def __init__(self, entity_name='name', **kwargs):
         entity = None
         if 'spec' in kwargs:
             spec = kwargs.pop('spec')
             crd = kwargs.pop('crd')
-            # client = kwargs.get('client')
             entity = {Tenant.FOLD[0]:{Tenant.FOLD[1]:{}}}
             insert = entity[Tenant.FOLD[0]][Tenant.FOLD[1]]
             for key, value in spec.items():
@@ -1385,17 +1392,17 @@ class Tenant(DefaultResourceCRD, threescale_api.resources.Tenant):
 
             insert['id'] = crd.as_dict()['status'][Tenants.ID_NAME]
             self._entity_id = insert.get('id')
+            # get secret created by operator
+            sec_data = ocp.selector('secret/' + insert['tenantSecretRef']['name']).objects()[0].as_dict()['data']
+            insert['admin_base_url'] = base64.b64decode(sec_data['adminURL'])
+            entity[Tenant.FOLD[0]]['access_token'] = { 'value': base64.b64decode(sec_data['token']) }
+            insert['base_url'] = insert['admin_base_url']
 
-            threescale_api.resources.Tenant.__init__(self, entity_name=entity_name,
-                                                     entity=entity, **kwargs)
-            DefaultResourceCRD.__init__(self, crd=crd, entity_name=entity_name,
-                                        entity=entity, **kwargs)
+            super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
         else:
             # this is not here because of some backup, but because we need to have option
             # to creater empty object without any data. This is related to "lazy load"
-            threescale_api.resources.Tenant.__init__(self, entity_name=entity_name,
-                    **kwargs)
-            DefaultResourceCRD.__init__(self, entity_name=entity_name, **kwargs)
+            super().__init__(entity_name=entity_name, **kwargs)
 
 
     @property

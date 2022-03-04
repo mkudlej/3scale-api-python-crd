@@ -60,7 +60,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             ret = []
             if isinstance(instance_list, list):
                 ret = ([instance for instance in instance_list
-                    if (instance['id'] and instance['id'] == entity_id) or
+                    if (instance.entity_id and instance.entity_id == entity_id) or
                     entity_id is None][:1] or [None])[0]
 
             else:
@@ -118,7 +118,8 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             if not self.NESTED:
                 spec['metadata']['namespace'] = self.threescale_client.ocp_namespace
                 spec['metadata']['name'] = name
-                spec['spec']['providerAccountRef']['name'] = self.threescale_client.ocp_provider_ref
+                if self.__class__.__name__ not in ['Tenants']:
+                    spec['spec']['providerAccountRef']['name'] = self.threescale_client.ocp_provider_ref
 
             self.before_create(params, spec)
 
@@ -208,15 +209,20 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                         if not status:
                             continue
                         new_id = status.get(self.ID_NAME, 0)
-                        state = {'Failed': True, 'Invalid': True, 'Synced': False, 'Ready': False}
-                        for sta in status['conditions']:
-                            state[sta['type']] = (sta['status'] == 'True')
-                        if state['Failed'] or state['Invalid'] or\
-                            (not (state['Synced'] or state['Ready'])) or\
-                            (new_id == 0):
-                            list_objs2.append(obj)
+                        # exception because of https://issues.redhat.com/browse/THREESCALE-8273
+                        if self.__class__.__name__ in ['Tenants']:
+                            if status.get('adminId', None) and status.get('tenantId', None):
+                                created_objects.append(obj)
                         else:
-                            created_objects.append(obj)
+                            state = {'Failed': True, 'Invalid': True, 'Synced': False, 'Ready': False}
+                            for sta in status['conditions']:
+                                state[sta['type']] = (sta['status'] == 'True')
+                            if state['Failed'] or state['Invalid'] or\
+                                (not (state['Synced'] or state['Ready'])) or\
+                                (new_id == 0):
+                                list_objs2.append(obj)
+                            else:
+                                created_objects.append(obj)
                     list_objs = list_objs2
                     if list_objs2:
                         time.sleep(20)
@@ -473,6 +479,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             return None
 
         elif self.CRD_IMPLEMENTED:
+            new_params = copy.deepcopy(new_params)
             self.before_update(new_params, resource)
             def _modify(apiobj):
                 apiobj.model.spec = self.translate_to_crd(new_params)
@@ -484,7 +491,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             if not success:
                 LOG.error("[INSTANCE] Update CRD failed: %s", str(result))
                 raise Exception(str(result))
-            return resource.read()
+            return self.read(resource.entity_id)
 
 
         return threescale_api.defaults.DefaultClient.update(self, entity_id=entity_id,
