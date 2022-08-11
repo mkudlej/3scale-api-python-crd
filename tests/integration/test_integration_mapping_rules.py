@@ -21,14 +21,16 @@ def test_should_read_mapping_rule(mapping_rule, mapping_rule_params):
     asserts.assert_resource_params(resource, mapping_rule_params)
 
 def test_should_update_mapping_rule(proxy, updated_mapping_rules_params, backend_usage, apicast_http_client):
+    lcount = proxy.mapping_rules.list()
     resource = proxy.mapping_rules.create(params=updated_mapping_rules_params)
-    pattern = '/get/anything/test-foo'
-    resource['pattern'] = pattern
+    delta = 11
+    resource['delta'] = delta
     resource.update()
     updated_resource = resource.read()
-    assert updated_resource['pattern'] == pattern
+    assert updated_resource['delta'] == delta
+    assert lcount == len(proxy.mapping_rules.list())
     proxy.deploy()
-    response = apicast_http_client.get(path=pattern)
+    response = apicast_http_client.get(path=resource['pattern'])
     asserts.assert_http_ok(response)
 
 # end of tests important for CRD - CRU + list

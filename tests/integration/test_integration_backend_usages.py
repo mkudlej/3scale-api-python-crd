@@ -20,9 +20,11 @@ def test_should_read_backend_usage(backend_usage, backend_usage_params):
     asserts.assert_resource(resource)
     asserts.assert_resource_params(resource, backend_usage_params)
 
-def test_should_update_backend_usage(backend_usage, backend_updated_usage_params):
+def test_should_update_backend_usage(service, backend_usage, backend_updated_usage_params):
+    lcount = len(service.backend_usages.list())
     resource = backend_usage.update(params=backend_updated_usage_params)
     asserts.assert_resource(resource)
     asserts.assert_resource_params(resource, backend_updated_usage_params)
+    assert lcount == len(service.backend_usages.list())
 
 # end of tests important for CRD - CRU + list

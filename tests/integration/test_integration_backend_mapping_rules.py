@@ -19,16 +19,18 @@ def test_should_read_mapping_rule(backend_mapping_rule, backend_mapping_rule_par
     asserts.assert_resource_params(resource, backend_mapping_rule_params)
 
 def test_should_update_mapping_rule(service, backend, backend_usage,
-        updated_backend_mapping_rules_params, application, apicast_http_client):
+        updated_backend_mapping_rules_params, application_plan, apicast_http_client):
+    lcount = len(backend.mapping_rules.list())
     resource = backend.mapping_rules.create(updated_backend_mapping_rules_params)
-    pattern = '/anything/test-foo'
-    resource['pattern'] = pattern
+    delta = 11
+    resource['delta'] = delta
     resource.update()
     updated_resource = resource.read()
-    assert updated_resource['pattern'] == pattern
+    assert updated_resource['delta'] == delta
+    assert lcount == len(backend.mapping_rules.list())
 
     service.proxy.deploy()
-    response = apicast_http_client.get(path=f"{backend_usage['path']}{pattern}")
+    response = apicast_http_client.get(path=f"{backend_usage['path']}{resource['pattern']}")
     asserts.assert_http_ok(response)
 
 # end of tests important for CRD - CRU + list

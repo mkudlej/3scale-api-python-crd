@@ -70,7 +70,8 @@ def test_service_set_proxy(api, service: Service, proxy: Proxy):
 
 def test_service_proxy_promote(service, proxy, backend_usage):
     service.proxy.list().deploy()
-    res = service.proxy.list().promote()
+    service.proxy.list().promote()
+    res = service.proxy.list().configs.latest(env='production')
     assert res is not None
     assert res['environment'] == 'production'
     assert res['content'] is not None

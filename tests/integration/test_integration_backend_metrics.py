@@ -21,9 +21,11 @@ def test_should_read_metric(backend_metric, backend_metric_params):
     asserts.assert_resource_params(resource, backend_metric_params)
 
 def test_should_update_metric(backend_metric, backend_updated_metric_params):
+    lcount = len(backend.metrics.list())
     resource = backend_metric.update(params=backend_updated_metric_params)
     asserts.assert_resource(resource)
     asserts.assert_resource_params(resource, backend_updated_metric_params)
+    assert lcount == len(backend.metrics.list())
 
 # end of tests important for CRD - CRU + list
 

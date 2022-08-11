@@ -32,10 +32,12 @@ def test_should_read_method(method, method_params):
     asserts.assert_resource_params(resource, method_params)
 
 
-def test_should_update_method(method, updated_method_params):
+def test_should_update_method(hits_metric, method, updated_method_params):
+    lcount = hits_metric.methods.list()
     resource = method.update(params=updated_method_params)
     asserts.assert_resource(resource)
     asserts.assert_resource_params(resource, updated_method_params)
+    assert lcount == hits_metric.methods.list()
 
 
 def test_should_delete_method(hits_metric, updated_method_params):

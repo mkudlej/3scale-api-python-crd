@@ -6,7 +6,7 @@ SERVICE_AUTH = {
     'userkey': '1',
     'appKeyAppID': '2',
     'oidc': 'oidc'
-    }
+}
 
 SPEC_SERVICE = {
     'apiVersion': 'capabilities.3scale.net/v1beta1',
@@ -14,12 +14,12 @@ SPEC_SERVICE = {
     'metadata': {
         'name': None,
         'namespace': None,
-        },
+    },
     'spec': {
         'name': None,
         'providerAccountRef': {
             'name': None,
-            },
+        },
         'systemName': None,
         'description': None,
         'deployment': {
@@ -29,21 +29,21 @@ SPEC_SERVICE = {
                         'authUserKey': 'token',
                         'credentials': 'query',
                         'gatewayResponse': {
-                            },
                         },
                     },
                 },
             },
+        },
         'applicationPlans': {
             'AppPlanTest': {
                 'setupFee': '0.00',
                 'costMonth': '0.00',
                 'published': True,
-                }
-            },
+            }
         },
-        'policies': []
-    }
+    },
+    'policies': []
+}
 
 SPEC_PROXY = {}
 
@@ -54,17 +54,17 @@ SPEC_BACKEND = {
     'metadata': {
         'name': None,
         'namespace': None,
-        },
+    },
     'spec': {
         'name': None,
         'privateBaseURL': None,
         'systemName': None,
         'providerAccountRef': {
             'name': None,
-            },
-        'description': None
         },
-    }
+        'description': None
+    },
+}
 
 SPEC_MAPPING_RULE = {
     'spec': {
@@ -73,22 +73,39 @@ SPEC_MAPPING_RULE = {
         'increment': None,
         'metricMethodRef': None,
         'last': None
-        }
     }
+}
 
 SPEC_BACKEND_USAGE = {
     'spec': {
         'path': None,
-        }
     }
+}
+
+SPEC_LIMIT = {
+    'spec': {
+        'period': None,
+        'value': None,
+        'metricMethodRef': None,
+    }
+}
+
+SPEC_PRICING_RULE = {
+    'spec': {
+        'from': None,
+        'to': None,
+        'pricePerUnit': None,
+        'metricMethodRef': None,
+    }
+}
 
 SPEC_METRIC = {
     'spec': {
         'friendlyName': None,
         'unit': None,
         'description': None,
-        }
     }
+}
 SPEC_APP_PLANS = {
     'spec': {
         'name': None,
@@ -97,10 +114,10 @@ SPEC_APP_PLANS = {
         'setupFee': None,
         'costMonth': None,
         'publish': True,
-        # TODO pricingRules
-        # TODO limits
-        }
+        'pricingRules': None,
+        'limits': None
     }
+}
 
 SPEC_ACTIVE_DOC = {
     'apiVersion': 'capabilities.3scale.net/v1beta1',
@@ -108,15 +125,15 @@ SPEC_ACTIVE_DOC = {
     'metadata': {
         'name': None,
         'namespace': None,
-        },
+    },
     'spec': {
         'name': None,
         'providerAccountRef': {
             'name': None,
-            },
+        },
         'activeDocOpenAPIRef': {
             'secretRef': 'oas3-json-secret',
-            },
+        },
         'systemName': None,
         'description': None,
         'productSystemName': None,
@@ -131,12 +148,12 @@ SPEC_POLICY_REG = {
     'metadata': {
         'name': None,
         'namespace': None,
-        },
+    },
     'spec': {
         'name': None,
         'providerAccountRef': {
             'name': None,
-            },
+        },
         'version': None,
         'schema': {
             'name': None,
@@ -145,7 +162,7 @@ SPEC_POLICY_REG = {
             '$schema': None,
             'description': None,
             'configuration': None
-            }
+        }
     }
 }
 
@@ -156,11 +173,11 @@ SPEC_ACCOUNT = {
     'metadata': {
         'name': None,
         'namespace': None,
-        },
+    },
     'spec': {
         'providerAccountRef': {
             'name': None,
-            },
+        },
         'orgName': None,
         'monthlyBillingEnabled': None,
         'monthlyChargingEnabled': None
@@ -173,11 +190,11 @@ SPEC_ACCOUNT_USER = {
     'metadata': {
         'name': None,
         'namespace': None,
-        },
+    },
     'spec': {
         'providerAccountRef': {
             'name': None,
-            },
+        },
         'username': None,
         'email': None,
         'suspended': None,
@@ -197,19 +214,9 @@ SPEC_POLICY = {
         'version': None,
         'enabled': None,
         'configuration': {},
-        }
     }
+}
 
-#           'openapiRef': {
-#            'url': None,
-#            },
-#        'productionPublicBaseURL': None,
-#        'stagingPublicBaseURL': None,
-#        'productSystemName': None,
-#        'privateBaseURL': None,
-#        'prefixMatching': None,
-#        'privateAPIHostHeader': None,
-#        'privateAPISecretToken': None
 
 SPEC_OPEN_API = {
     'apiVersion': 'capabilities.3scale.net/v1beta1',
@@ -217,11 +224,11 @@ SPEC_OPEN_API = {
     'metadata': {
         'name': None,
         'namespace': None,
-        },
+    },
     'spec': {
         'providerAccountRef': {
             'name': None,
-            },
+        },
     }
 }
 
@@ -231,7 +238,7 @@ SPEC_TENANT = {
     'metadata': {
         'name': None,
         'namespace': None,
-        },
+    },
     'spec': {
         'organizationName': None,
         'email': None,
@@ -239,14 +246,29 @@ SPEC_TENANT = {
         'systemMasterUrl': None,
         'masterCredentialsRef': {
             'name': None,
-            },
+        },
         'passwordCredentialsRef': {
             'name': None,
-            },
+        },
         'tenantSecretRef': {
             'name': None,
             'namespace': None
-            }
+        }
+    }
+}
+
+SPEC_PROMOTE = {
+    'apiVersion': 'capabilities.3scale.net/v1beta1',
+    'kind': 'ProxyConfigPromote',
+    'metadata': {
+        'name': None,
+        'namespace': None,
+    },
+    'spec': {
+        'providerAccountRef': {
+            'name': None,
+        },
+        'productCRName': None,
     }
 }
 
@@ -265,21 +287,21 @@ KEYS_SERVICE = {
 KEYS_PROXY_RESPONSES = {
     'error_auth_failed': 'errorAuthFailed',
     'error_auth_missing': 'errorAuthMissing',
-        'systemName': None,
-        'description': None,
-        'deployment': {
-            'apicastHosted': {
-                'authentication': {
-                    'userkey': {
-                        'authUserKey': 'token',
-                        'credentials': 'query',
-                        'gatewayResponse': {
-                            },
-                        },
+    'systemName': None,
+    'description': None,
+    'deployment': {
+        'apicastHosted': {
+            'authentication': {
+                'userkey': {
+                    'authUserKey': 'token',
+                    'credentials': 'query',
+                    'gatewayResponse': {
                     },
                 },
-            }
+            },
+        },
     }
+}
 
 KEYS_SERVICE = {
     'description': 'description',
@@ -306,12 +328,12 @@ KEYS_PROXY_RESPONSES = {
     'error_status_auth_missing': 'errorStatusAuthMissing',
     'error_status_limits_exceeded': 'errorStatusLimitsExceeded',
     'error_status_no_match': 'errorStatusNoMatch',
-    }
+}
 
 KEYS_PROXY_SECURITY = {
     'secret_token': 'secretToken',
     'host_header': 'hostHeader',
-    }
+}
 
 KEYS_PROXY = {
     'credentials_location': 'credentials',
@@ -324,14 +346,14 @@ KEYS_PROXY = {
     'oidc_issuer_type': 'issuerType',
     'jwt_claim_with_client_id': 'jwtClaimWithClientID',
     'jwt_claim_with_client_id_type': 'jwtClaimWithClientIDType',
-        }
+}
 
 KEYS_OIDC = {
     'standard_flow_enabled': 'standardFlowEnabled',
     'implicit_flow_enabled': 'implicitFlowEnabled',
     'service_accounts_enabled': 'serviceAccountsEnabled',
     'direct_access_grants_enabled': 'directAccessGrantsEnabled',
-        }
+}
 
 KEYS_BACKEND = {
     'description': 'description',
@@ -376,6 +398,12 @@ KEYS_METRIC = {
     'name': 'name'
 }
 
+KEYS_LIMIT = {
+    'period': 'period',
+    'value': 'value',
+    # 'metric_name': 'metricMethodRef', should be processed
+}
+
 KEYS_APP_PLANS = {
     'name': 'name',
     'approval_required': 'appsRequireApproval',
@@ -383,6 +411,9 @@ KEYS_APP_PLANS = {
     'setup_fee': 'setupFee',
     'cost_per_month': 'costMonth',
     'publish': 'published',
+    'system_name': 'system_name',
+    'limits': 'limits',
+    'pricingRules': 'pricingRules',
     # missing state, cancellation_period, default, custom
 }
 
@@ -433,13 +464,32 @@ KEYS_TENANT = {
     'masterCredentialsRef': 'masterCredentialsRef'
 }
 
+KEYS_LIMIT = {
+    'period': 'period',
+    'value': 'value',
+    'metricMethodRef': 'metricMethodRef'
+}
+
+KEYS_PRICING_RULE = {
+    'cost_per_unit': 'pricePerUnit',
+    'min': 'from',
+    'max': 'to',
+    'metricMethodRef': 'metricMethodRef'
+}
+
+KEYS_PROMOTE = {
+    'productCRName': 'productCRName',
+    'production': 'production',
+    'deleteCR': 'deleteCR',
+}
+
 SPEC_SECRET = {
     'kind': 'Secret',
     'apiVersion': 'v1',
     'metadata': {
         'name': None,
         'namespace': None,
-        },
+    },
     'data': {},
     'type': 'Opaque'
 }

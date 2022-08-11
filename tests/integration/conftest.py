@@ -4,21 +4,21 @@ from distutils.util import strtobool
 
 import pytest
 from dotenv import load_dotenv
-from threescale_api import errors
+# from threescale_api import errors
 
 import threescale_api
 import threescale_api_crd
-from threescale_api.resources import (ApplicationPlan, Application,
-                                      Proxy, Webhooks)
+from threescale_api.resources import Application
 
 from threescale_api_crd.resources import (Service, Metric, BackendUsage, BackendMappingRule,
-                                          Backend, ActiveDoc, PolicyRegistry, MappingRule)
+                                          Backend, ActiveDoc, PolicyRegistry, MappingRule,
+                                          Limit, ApplicationPlan, Proxy, PricingRule)
 load_dotenv()
 
 
 def cleanup(resource):
-    # resource.delete()
-    # assert not resource.exists()
+#    resource.delete()
+#    assert not resource.exists()
     pass
 
 
@@ -108,20 +108,6 @@ def service(service_params, api) -> Service:
 
 
 @pytest.fixture(scope='module')
-def user_params():
-    suffix = get_suffix()
-    name = f"test-{suffix}"
-    return dict(name=name, username=name, org_name=name, monthly_billing_enabled=False, monthly_charging_enabled=False)
-
-
-@pytest.fixture(scope='module')
-def user(user_params, api):
-    entity = api.accounts.create(params=account_params)
-    yield entity
-    cleanup(entity)
-
-
-@pytest.fixture(scope='module')
 def account_params():
     suffix = get_suffix()
     name = f"testacc{suffix}"
@@ -130,10 +116,11 @@ def account_params():
 
 
 @pytest.fixture(scope='module')
-def account(account_params, api):
-    entity = api.accounts.create(params=account_params)
-    yield entity
-    cleanup(entity)
+def account(api, account_params):
+    acc = api.accounts.create(params=account_params)
+    account_params.update(account_name=acc['name'])
+    yield acc
+    cleanup(acc)
 
 
 @pytest.fixture(scope='module')
@@ -155,14 +142,14 @@ def acc_user2(account, acc_user, acc_user2_params):
 @pytest.fixture(scope='module')
 def application_plan_params(service) -> dict:
     suffix = get_suffix()
-    return dict(name=f"test-{suffix}")
+    return dict(name=f"test-{suffix}", setup_fee="1.00", publish=True, cost_per_month="3.00")
 
 
 @pytest.fixture(scope='module')
 def application_plan(api, service, application_plan_params) -> ApplicationPlan:
-    # resource = service.app_plans.create(params=application_plan_params)
-    resource = service.app_plans.list()[-1]
+    resource = service.app_plans.create(params=application_plan_params)
     yield resource
+    cleanup(resource)
 
 
 @pytest.fixture(scope='module')
@@ -224,7 +211,7 @@ def backend_metric_params():
                 name=name, unit='count')
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def updated_metric_params(metric_params):
     suffix = get_suffix()
     friendly_name = f'test-updated-metric-{suffix}'
@@ -232,7 +219,7 @@ def updated_metric_params(metric_params):
     return metric_params
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def backend_updated_metric_params(backend_metric_params):
     suffix = get_suffix()
     friendly_name = f'test-updated-metric-{suffix}'
@@ -256,7 +243,7 @@ def method_params(service):
                 unit='hits')
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def updated_method_params(method_params):
     suffix = get_suffix()
     friendly_name = f'test-updated-method-{suffix}'
@@ -303,7 +290,7 @@ def backend_mapping_rule_params(backend, backend_metric):
                 delta=1)
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def updated_mapping_rules_params(mapping_rule_params):
     """
     Fixture for updating mapping rule for product/service.
@@ -314,7 +301,7 @@ def updated_mapping_rules_params(mapping_rule_params):
     return params
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def updated_backend_mapping_rules_params(backend_mapping_rule_params):
     """
     Fixture for updating mapping rule for backend.
@@ -345,7 +332,7 @@ def backend_mapping_rule(backend, backend_mapping_rule_params) -> BackendMapping
     cleanup(resource)
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def create_mapping_rule(service):
     """
     Fixture for creating mapping rule for product/service.
@@ -369,7 +356,7 @@ def create_mapping_rule(service):
     #         cleanup(rule)
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def create_backend_mapping_rule(backend):
     """
     Fixture for creating mapping rule for backend.
@@ -431,11 +418,6 @@ def custom_tenant(master_api, tenant_params):
     resource = master_api.tenants.create(tenant_params)
     yield resource
     resource.delete()
-    # tenants are not deleted immediately, they are scheduled for the deletion
-    # the exists method returns ok response, even if the tenant is scheduled for deletion
-    # However, the deletion of the tenant fails, if already deleted
-    #with pytest.raises(errors.ApiClientError):
-    #    resource.delete()
 
 
 @pytest.fixture(scope="module")
@@ -443,7 +425,7 @@ def tenant_params():
     """
     Params for custom tenant
     """
-    return dict(name="tenant17",
+    return dict(name=f"tenant{get_suffix()}",
                 admin_password="123456",
                 email="email@invalid.invalid",
                 org_name="org")
@@ -484,7 +466,7 @@ def openapi_params(active_docs_body):
         name=name,
         productionPublicBaseURL='http://productionPublicBaseURL',
         stagingPublicBaseURL='http://stagingPublicBaseURL',
-        productSystemName='productsystemname', # https://issues.redhat.com/browse/THREESCALE-8128
+        productSystemName='productsystemname',  # https://issues.redhat.com/browse/THREESCALE-8128
         privateBaseURL='http://privateBaseURL',
         prefixMatching=True,
         privateAPIHostHeader='privateAPIHostHeader',
@@ -522,6 +504,7 @@ def policy_registry_schema():
 
 @pytest.fixture(scope='module')
 def policy_registry_params(policy_registry_schema):
+    """ Params for policy registry. """
     suffix = get_suffix()
     name = f"test-{suffix}"
     return dict(name=name, version='0.1', schema=policy_registry_schema)
@@ -534,5 +517,87 @@ def policy_registry(api, policy_registry_params) -> PolicyRegistry:
     """
     acs = policy_registry_params.copy()
     resource = api.policy_registry.create(params=acs)
+    yield resource
+    cleanup(resource)
+
+
+@pytest.fixture(scope='module')
+def limit_params(metric):
+    """ Params for limit. """
+    return dict(metric_id=metric["id"], period="minute", value=10)
+
+
+@pytest.fixture(scope='module')
+def limit(service, application, application_plan, metric, limit_params) -> Limit:
+    """
+    Fixture for getting limit.
+    """
+    resource = application_plan.limits(metric).create(limit_params)
+    yield resource
+    resource.delete()
+
+
+@pytest.fixture(scope='module')
+def backend_limit_params(backend_metric):
+    """ Params for limit. """
+    return dict(metric_id=backend_metric["id"], period="minute", value=10)
+
+
+@pytest.fixture(scope='module')
+def backend_limit(service, application, application_plan, backend_metric, backend_limit_params, backend_usage) -> Limit:
+    """
+    Fixture for getting limit for backend metric.
+    """
+    resource = application_plan.limits(backend_metric).create(backend_limit_params)
+    yield resource
+    resource.delete()
+
+
+@pytest.fixture(scope='module')
+def prule_params(metric):
+    """ Params for prule. """
+    return dict(metric_id=metric["id"], min=10, max=100, cost_per_unit="10")
+
+
+@pytest.fixture(scope='module')
+def prule(service, application, application_plan, metric, prule_params) -> PricingRule:
+    """
+    Fixture for getting prule.
+    """
+    resource = application_plan.pricing_rules(metric).create(prule_params)
+    yield resource
+    resource.delete()
+
+
+@pytest.fixture(scope='module')
+def backend_prule_params(backend_metric):
+    """ Params for prule. """
+    return dict(metric_id=backend_metric["id"], min=10, max=100, cost_per_unit=10)
+
+
+@pytest.fixture(scope='module')
+def backend_prule(service, application, application_plan, backend_metric, backend_prule_params, backend_usage) -> PricingRule:
+    """
+    Fixture for getting prule for backend metric.
+    """
+    resource = application_plan.pricing_rules(backend_metric).create(backend_prule_params)
+    yield resource
+    resource.delete()
+
+
+@pytest.fixture(scope='module')
+def promote_params(api, service):
+    """
+    Promote params for service.
+    """
+    return dict(productCRName=service.crd.as_dict()['metadata']['name'])
+
+
+@pytest.fixture(scope='module')
+def promote(api, service, backend, backend_usage, promote_params):
+    """
+    Promote object for service.
+    """
+    resource = api.promotes.create(params=promote_params)
     yield resource
     cleanup(resource)

@@ -26,6 +26,7 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
         self._accounts_users = resources.AccountUsers(parent=self, instance_klass=resources.AccountUser)
         self._openapis = resources.OpenApis(parent=self, instance_klass=resources.OpenApi)
         self._tenants = resources.Tenants(parent=self, instance_klass=resources.Tenant)
+        self._promotes = resources.Promotes(parent=self, instance_klass=resources.Promote)
 
     @property
     def services(self) -> resources.Services:
@@ -82,6 +83,13 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
         Returns(resources.Tenants): Tenants client
         """
         return self._tenants
+ 
+    @property
+    def promotes(self) -> resources.Promotes:
+        """Gets promotes client
+        Returns(resources.Promotes): Promotes client
+        """
+        return self._promotes
 
     @property
     def ocp_provider_ref(self):

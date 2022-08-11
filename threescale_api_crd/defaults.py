@@ -23,12 +23,13 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
     NESTED = False
     SELECTOR = None
     KEYS = None
+    ID_NAME = None
 
     def __init__(self, parent=None, instance_klass=None, entity_name=None, entity_collection=None):
         super().__init__(parent=parent, instance_klass=instance_klass,
                          entity_name=entity_name, entity_collection=entity_collection)
 
-    def get_list(self):
+    def get_list(self, typ='normal'):
         """ Returns list of entities. """
         return []
 
@@ -62,7 +63,6 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 ret = ([instance for instance in instance_list
                     if (instance.entity_id and instance.entity_id == entity_id) or
                     entity_id is None][:1] or [None])[0]
-
             else:
                 # proxy.fetch exception
                 ret = instance_list
@@ -143,25 +143,44 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                     else:
                         # metric id is tuple
                         spec['spec']['metricMethodRef'] = params['metric_id'][0]
-                mapsi = self.get_list()
+                mapsi = self.get_list(typ='full')
                 maps = {}
-                if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
+                if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules', 'Limits', 'PricingRules']:
                     maps = []
 
                 for mapi in mapsi:
                     if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
                         maps.append(self.translate_to_crd(mapi.entity, self.trans_item))
                     elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                        name = mapi['name']
+                        name = mapi[self.ID_NAME]
                         maps[name] = self.translate_to_crd(mapi.entity, self.trans_item)
                     elif self.__class__.__name__ in ['BackendUsages']:
                         map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                         backend_id = mapi['backend_id']
                         back = self.parent.parent.backends.read(int(backend_id))
-                        maps[back['name']] = map_ret
+                        maps[back[self.ID_NAME]] = map_ret
                     elif self.__class__.__name__ in ['ApplicationPlans']:
-                        name = mapi['name']
+                        name = mapi[self.ID_NAME]
                         maps[name] = self.translate_to_crd(mapi.entity, self.trans_item)
+                    elif self.__class__.__name__ in ['Limits']:
+                        if params['period'] != mapi['period'] or \
+                            params['metric_name'] != mapi['metric_name'] or \
+                            params['plan_id'] != mapi['plan_id']:
+                            ins = self.translate_to_crd(mapi.entity)
+                            ins['metricMethodRef'] = {'systemName': mapi['metric_name']}
+                            if 'backend_name' in mapi.entity:
+                                ins['metricMethodRef']['backend'] = mapi['backend_name']
+                            maps.append(ins)
+                    elif self.__class__.__name__ in ['PricingRules']:
+                        if params['min'] != mapi['min'] or params['max'] != mapi['max'] or \
+                            params['metric_name'] != mapi['metric_name'] or \
+                            params['plan_id'] != mapi['plan_id']:
+                            ins = self.translate_to_crd(mapi.entity)
+                            ins['metricMethodRef'] = {'systemName': mapi['metric_name']}
+                            if 'backend_name' in mapi.entity:
+                                ins['metricMethodRef']['backend'] = mapi['backend_name']
+                            maps.append(ins)
+
 
                 if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
                     resources.MappingRules.insert_into_position(maps, params, spec)
@@ -180,14 +199,28 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                     backend_id = spec['spec'].pop('backend_id')
                     back = self.parent.parent.backends.read(int(backend_id))
 
-                    maps[back['name']] = spec['spec']
+                    maps[back[self.ID_NAME]] = spec['spec']
                     par = self.parent.update({'backend_usages':maps})
                     maps = self.parent.backend_usages.list()
                 elif self.__class__.__name__ in ['ApplicationPlans']:
-                    params['name'] = DefaultClientCRD.normalize(spec['spec'].pop('name'))
-                    maps[params['name']] = spec['spec']
+                    if self.ID_NAME in spec['spec']:
+                        params[self.ID_NAME] = DefaultClientCRD.normalize(spec['spec'].pop(self.ID_NAME))
+                    else:
+                        params[self.ID_NAME] = DefaultClientCRD.normalize(spec['spec'].pop('name'))
+                    maps[params[self.ID_NAME]] = spec['spec']
                     par = self.parent.update({'application_plans':maps})
                     maps = self.get_list()
+                elif self.__class__.__name__ in ['Limits']:
+                    maps = resources.Limits.insert_to_list(maps, params, spec)
+                    self.parent.update({'limits':maps})
+                    maps = self.get_list(typ='normal')
+                    return resources.Limits.get_from_list(maps, params, spec)
+                elif self.__class__.__name__ in ['PricingRules']:
+                    maps = resources.PricingRules.insert_to_list(maps, params, spec)
+                    self.parent.update({'pricingRules':maps})
+                    maps = self.get_list(typ='normal')
+                    return resources.PricingRules.get_from_list(maps, params, spec)
+
 
                 for mapi in maps:
                     if all([params[key] == mapi[key] for key in params.keys()]):
@@ -213,6 +246,12 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                         if self.__class__.__name__ in ['Tenants']:
                             if status.get('adminId', None) and status.get('tenantId', None):
                                 created_objects.append(obj)
+                        elif self.__class__.__name__ in ['Promotes']:
+                            state = {'Ready': status['conditions'][0]['status'] == 'True'}
+                            if state['Ready']:
+                                created_objects.append(obj)
+                            else:
+                                list_objs2.append(obj)
                         else:
                             state = {'Failed': True, 'Invalid': True, 'Synced': False, 'Ready': False}
                             for sta in status['conditions']:
@@ -254,23 +293,23 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         #    extracted = extracted.get(collection)
         if isinstance(response, list):
             if self.CRD_IMPLEMENTED and self.NESTED:
-                parent_id = int(self.parent.entity_id)
+                parent_id = int(self.topmost_parent().entity_id)
                 service_with_maps = {}
                 for prod in response:
                     prod_dict = prod.as_dict()
                     if prod_dict is None:
                         prod_dict = {}
-                    idp = int(prod_dict.get('status', {}).get(self.parent.client.ID_NAME, 0))
+                    idp = int(prod_dict.get('status', {}).get(self.topmost_parent().client.ID_NAME, 0))
                     if  idp == parent_id:
                         service_with_maps = prod
                         break
-                spec = (DictQuery(service_with_maps.as_dict()).get(klass.GET_PATH)) or []
+                spec = (DictQuery(service_with_maps.as_dict()).get(klass.GET_PATH or self.get_path())) or []
                 if isinstance(spec, list):
                     return [{'spec': obj, 'crd': service_with_maps} for obj in spec]
                 elif 'apicastHosted' not in spec.keys(): # exception for Proxy
                     ret = []
                     for key, obj in spec.items():
-                        obj['name'] = key
+                        obj[self.ID_NAME] = key
 
                         ret.append({'spec': obj, 'crd': service_with_maps})
                     return ret
@@ -289,6 +328,19 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 return {'policies_config': instance}
             if self.__class__.__name__ == 'Proxies':
                 return instance[0]
+            if self.__class__.__name__ in ['Limits', 'PricingRules']:
+                # it is needed to distinguish between getting metric's limits(normal) or all limits(full)
+                if (resources.Limits.LIST_TYPE == 'normal' and self.__class__.__name__ == 'Limits') or (resources.PricingRules.LIST_TYPE == 'normal' and self.__class__.__name__ == 'PricingRules'):
+                    if self.metric.__class__.__name__ == 'BackendMetric':
+                        return [obj for obj in instance \
+                                if self.metric['name'] == obj['metric_name'] and \
+                                self.metric.parent['system_name'] == obj['backend_name']]
+                    else:
+                        return [obj for obj in instance \
+                                if self.metric['name'] == obj['metric_name'] and \
+                                'backend_name' not in obj.entity]
+                else:
+                    return [obj for obj in instance]
             return instance
         return self.__make_instance_crd(extracted, klass)
 
@@ -298,17 +350,13 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
 
 
     def delete(self, entity_id: int = None, resource: 'DefaultResource' = None, **kwargs) -> bool:
+        """ Method deletes resource. """
         LOG.info(self._log_message("[DELETE] Delete CRD ", entity_id=entity_id, args=kwargs))
         if self.CRD_IMPLEMENTED and self.NESTED:
-            spec = copy.deepcopy(self.SPEC)
-            for key, value in self.KEYS.items():
-                if resource.entity.get(key, None) is not None:
-                    spec[value] = resource.entity[key]
-                elif value in spec:
-                    del spec[value]
+            spec = self.translate_to_crd(resource.entity, self.trans_item)
             mapsi = self.get_list()
             maps = {}
-            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
+            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules', 'Limits', 'PricingRules']:
                 maps = []
             for mapi in mapsi:
                 if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
@@ -318,19 +366,24 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
                     map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                     if map_ret != spec:
-                        name = mapi['name']
+                        name = mapi[self.ID_NAME]
                         maps[name] = map_ret
                 elif self.__class__.__name__ in ['BackendUsages']:
                     map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                     if map_ret != spec:
                         backend_id = mapi['backend_id']
                         back = self.parent.parent.backends.read(int(backend_id))
-                        maps[back['name']] = map_ret
+                        maps[back[self.ID_NAME]] = map_ret
                 elif self.__class__.__name__ in ['ApplicationPlans']:
                     map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                     if map_ret != spec:
-                        name = mapi['name']
+                        name = mapi[self.ID_NAME]
                         maps[name] = map_ret
+                elif self.__class__.__name__ in ['Limits', 'PricingRules']:
+                    spec = self.translate_to_crd(resource.entity)
+                    map_ret = self.translate_to_crd(mapi.entity)
+                    if map_ret != spec:
+                        maps.append(map_ret)
 
             if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
                 self.parent.update({'mapping_rules':maps})
@@ -340,15 +393,23 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 self.parent.update({'backend_usages':maps})
             elif self.__class__.__name__ in ['ApplicationPlans']:
                 self.parent.update({'application_plans':maps})
+            elif self.__class__.__name__ in ['Limits']:
+                par = self.parent.update({'limits': maps})
+            elif self.__class__.__name__ in ['PricingRules']:
+                par = self.parent.update({'pricingRules': maps})
             return True
         elif self.CRD_IMPLEMENTED:
             resource.crd.delete()
-            return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
+            if self.__class__.__name__ not in ['Services', 'Backends', 'Tenants', 'Accounts', 'AccountUsers', 'Promotes', 'OpenApis']:
+                return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
+            else:
+                return True
         else:
             return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
 
     def update(self, entity_id=None, params: dict = None,
-               resource: 'DefaultResource' = None, **kwargs) -> 'DefaultResource':
+               resource: 'DefaultResource' = None,
+               **kwargs) -> 'DefaultResource':
         LOG.info(self._log_message("[UPDATE] Update CRD", body=params,
                                    entity_id=entity_id, args=kwargs))
         new_params = {}
@@ -368,7 +429,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 new_params['id'] =\
                     (new_params['path'], new_params['backend_id'], new_params['service_id'])
             elif self.__class__.__name__ in ['ApplicationPlans']:
-                new_params['id'] = new_params['name']
+                new_params['id'] = new_params['system_name']
             elif self.__class__.__name__ in ['Proxies']:
                 new_params['id'] = self.parent.entity_id
             elif self.__class__.__name__ in ['Policies']:
@@ -380,9 +441,10 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                     if hasattr(item, 'entity'):
                         item = item.entity
                     spec.append(self.translate_to_crd(item, self.trans_item))
-
-            if resource:
-                resource.entity_id = new_params['id']
+            elif self.__class__.__name__ in ['Limits', 'PricingRules']:
+                new_params['id'] = self.get('id')
+            if resource and 'id' in params:
+                resource.entity_id = params['id']
             # see above comment
             if self.__class__.__name__ not in ['Policies']:
                 spec = self.translate_to_crd(new_params, self.trans_item)
@@ -393,40 +455,46 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
 
             mapsi = self.get_list()
             maps = {}
-            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
+            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules', 'Limits', 'PricingRules']:
                 maps = []
+
+            # TODO this for should be replaced by insert_to_list method
             for mapi in mapsi:
                 if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
                     map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if map_ret != spec:
+                    if not (map_ret['httpMethod'] == spec['httpMethod'] and map_ret['metricMethodRef'] == spec['metricMethodRef']):
                         maps.append(map_ret)
                 elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
                     map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                     if map_ret != spec:
-                        name = mapi['name']
+                        name = mapi[self.ID_NAME]
                         maps[name] = map_ret
                 elif self.__class__.__name__ in ['BackendUsages']:
                     map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                     if map_ret != spec:
                         backend_id = mapi['backend_id']
                         back = self.parent.parent.backends.read(int(backend_id))
-                        maps[back['name']] = map_ret
+                        maps[back[self.ID_NAME]] = map_ret
                 elif self.__class__.__name__ in ['ApplicationPlans']:
                     if mapi['id'] != new_params['id']:
                         map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                        maps[mapi['name']] = map_ret
+                        maps[mapi[self.ID_NAME]] = map_ret
+                elif self.__class__.__name__ in ['Limits', 'PricingRules']:
+                    map_ret = self.translate_to_crd(mapi.entity)
+                    maps.append(map_ret)
+
             if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
                 resources.MappingRules.insert_into_position(maps, new_params, spec)
                 par = self.parent.update({'mapping_rules':maps})
             elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                name = new_params.get('name')
+                name = new_params.get(self.ID_NAME)
                 maps[name] = spec
                 par = self.parent.update({'metrics':maps})
             elif self.__class__.__name__ in ['BackendUsages']:
                 backend_id = spec.pop('backend_id')
                 spec.pop('service_id')
                 back = self.threescale_client.backends.read(int(backend_id))
-                maps[back['name']] = spec
+                maps[back[self.ID_NAME]] = spec
                 par = self.parent.update({'backend_usages':maps})
             elif self.__class__.__name__ in ['ApplicationPlans']:
                 maps[new_params['id']] = spec
@@ -461,6 +529,14 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 par = self.parent.update({'deployment': obj})
             elif self.__class__.__name__ in ['Policies']:
                 par = self.parent.update({'policies': spec})
+            elif self.__class__.__name__ in ['Limits']:
+                spec = self.translate_to_crd(params)
+                maps = resources.Limits.insert_to_list(maps, params, {'spec': spec})
+                par = self.parent.update({'limits': maps})
+            elif self.__class__.__name__ in ['PricingRules']:
+                spec = self.translate_to_crd(params)
+                maps = resources.PricingRules.insert_to_list(maps, params, {'spec': spec})
+                par = self.parent.update({'pricingRules': maps})
 
             maps = self.get_list()
             if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
@@ -481,14 +557,23 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         elif self.CRD_IMPLEMENTED:
             new_params = copy.deepcopy(new_params)
             self.before_update(new_params, resource)
-            def _modify(apiobj):
-                apiobj.model.spec = self.translate_to_crd(new_params)
+            new_spec = self.translate_to_crd(new_params)
             if resource.crd is None:
                 resource = resource.read()
                 if isinstance(resource, list):
                     resource = resource[0]
-            result, success = resource.crd.modify_and_apply(modifier_func=_modify)
-            if not success:
+            resource.crd.refresh()
+            new_crd = resource.crd.as_dict()
+            new_crd['spec'].update(new_spec)
+            if self.__class__.__name__ not in ['Tenants']:
+                new_crd['spec']['providerAccountRef'] = {'name': self.threescale_client.ocp_provider_ref}
+            resource.crd.model = ocp.Model(new_crd)
+            result = resource.crd.replace()
+            #    def _modify(apiobj):
+            #        apiobj.model.spec = new_spec
+            #    result, success = resource.crd.modify_and_apply(modifier_func=_modify)
+
+            if result.status():
                 LOG.error("[INSTANCE] Update CRD failed: %s", str(result))
                 raise Exception(str(result))
             return self.read(resource.entity_id)
@@ -508,12 +593,15 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 set_value = trans_item(key, value, obj)
                 if set_value is not None:
                     map_ret[value] = set_value
+
+
         return map_ret
 
 
 
 class DefaultResourceCRD(threescale_api.defaults.DefaultResource):
     """Default CRD resource."""
+    GET_PATH = None
     def __init__(self, *args, crd=None, **kwargs):
         super().__init__(**kwargs)
         self._crd = crd
@@ -550,6 +638,13 @@ class DefaultResourceCRD(threescale_api.defaults.DefaultResource):
             counter -= 1
 
         return None
+
+    def get_path(self):
+        """
+        This function is usefull only for Limits and PricingRules and\
+        it should be redefined there.
+        """
+        return self.__class__.GET_PATH
 
 
 class DictQuery(dict):
