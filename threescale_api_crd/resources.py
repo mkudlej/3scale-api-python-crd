@@ -33,6 +33,7 @@ class Services(DefaultClientCRD, threescale_api.resources.Services):
 
     def __init__(self, parent, *args, entity_name='service',
                  entity_collection='services', **kwargs):
+        self.trans_item = None
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
 
     def before_create(self, params, spec):
@@ -120,6 +121,7 @@ class Backends(DefaultClientCRD, threescale_api.resources.Backends):
 
     def __init__(self, parent, *args, entity_name='backend_api',
                  entity_collection='backend_apis', **kwargs):
+        self.trans_item = None
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
 
     def before_create(self, params, spec):
@@ -251,6 +253,7 @@ class ActiveDocs(DefaultClientCRD, threescale_api.resources.ActiveDocs):
 
     def __init__(self, parent, *args, entity_name='api_doc',
                  entity_collection='api_docs', **kwargs):
+        self.trans_item = None
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
 
     def before_create(self, params, spec):
@@ -298,6 +301,7 @@ class PoliciesRegistry(DefaultClientCRD, threescale_api.resources.PoliciesRegist
 
     def __init__(self, parent, *args, entity_name='policy',
                  entity_collection='policies', **kwargs):
+        self.trans_item = None
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
 
     def before_create(self, params, spec):
@@ -531,6 +535,7 @@ class Accounts(DefaultClientCRD, threescale_api.resources.Accounts):
 
     def __init__(self, parent, *args, entity_name='account',
                  entity_collection='accounts', **kwargs):
+        self.trans_item = None
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
 
     def before_create(self, params, spec):
@@ -560,6 +565,7 @@ class AccountUsers(DefaultClientCRD, threescale_api.resources.AccountUsers):
 
     def __init__(self, parent, *args, entity_name='user',
                  entity_collection='users', **kwargs):
+        self.trans_item = None
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
 
     def before_create(self, params, spec):
@@ -586,6 +592,7 @@ class OpenApis(DefaultClientCRD, threescale_api.defaults.DefaultClient):
 
     def __init__(self, parent, *args, entity_name='openapi',
                  entity_collection='openapis', **kwargs):
+        self.trans_item = None
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
 
     def before_create(self, params, spec):
@@ -632,6 +639,7 @@ class Promotes(DefaultClientCRD, threescale_api.defaults.DefaultClient):
 
     def __init__(self, parent, *args, entity_name='promote',
                  entity_collection='promotes', **kwargs):
+        self.trans_item = None
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
 
     def before_create(self, params, spec):
@@ -680,6 +688,7 @@ class Tenants(DefaultClientCRD, threescale_api.resources.Tenants):
 
     def __init__(self, parent, *args, entity_name='tenant',
                  entity_collection='tenants', **kwargs):
+        self.trans_item = None
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
 
     def before_create(self, params, spec):
@@ -967,6 +976,34 @@ class PricingRules(DefaultClientCRD, threescale_api.resources.PricingRules):
 #        instance = self._create_instance(response=response)
 #        return instance
 
+class Applications(DefaultClientCRD, threescale_api.resources.Applications):
+    """
+    CRD client for Applications.
+    """
+    CRD_IMPLEMENTED = True
+    SPEC = constants.SPEC_APPLICATION
+    KEYS = constants.KEYS_APPLICATION
+    SELECTOR = 'Application'
+    NESTED = False
+    ID_NAME = 'applicationID'
+
+    def __init__(self, parent, *args, entity_name='application',
+                 entity_collection='applications', **kwargs):
+        self.trans_item = None
+        super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
+
+    def before_create(self, params, spec):
+        """Called before create."""
+        service = self.parent.services.read(params['service_id'])
+        account = self.parent.accounts.read(params['account_id'])
+        plan = service.app_plans.read(params['plan_id'])
+        spec['spec']['productCR']['name'] = service['system_name']
+        spec['spec']['accountCR']['name'] = account['name']
+        spec['spec']['applicationPlanName'] = plan['system_name']
+
+    def before_update(self, new_params, resource):
+        """Called before update."""
+        pass
 
 # Resources
 # DefaultResourceCRD,
@@ -1669,6 +1706,10 @@ class Account(DefaultResourceCRD, threescale_api.resources.Account):
 
         return FakeAccountUsers(parent=self.parent, instance_klass=AccountUser)
 
+    @property
+    def applications(self) -> Applications:
+        return Applications(parent=self.parent, instance_klass=Application)
+
 
 class AccountUser(DefaultResourceCRD, threescale_api.resources.AccountUser):
     """
@@ -1960,3 +2001,57 @@ class Promote(DefaultResourceCRD):
             entity['id'] = crd.as_dict().get('status', {}).get(Promotes.ID_NAME, None)
 
         super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
+
+
+class Application(DefaultResourceCRD, threescale_api.resources.Application):
+    """
+    CRD resource for Application.
+    """
+    GET_PATH = 'spec'
+
+    def __init__(self, entity_name='name', **kwargs):
+        entity = None
+        if 'spec' in kwargs:
+            entity = {}
+            spec = kwargs.pop('spec')
+            crd = kwargs.pop('crd')
+            for key, value in spec.items():
+                for cey, walue in constants.KEYS_APPLICATION.items():
+                    if key == walue:
+                        entity[cey] = value
+            status = crd.as_dict().get('status')
+            entity['id'] = status.get(Applications.ID_NAME)
+            entity['state'] = status.get('state')
+
+            entity['service_name'] = spec.get('productCR').get('name')
+            entity['account_name'] = spec.get('accountCR').get('name')
+
+            super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
+        else:
+            # this is not here because of some backup, but because we need to have option
+            # to creater empty object without any data. This is related to "lazy load"
+            super().__init__(entity_name=entity_name, **kwargs)
+
+    @property
+    def service(self) -> 'Service':
+        "The service to which this application is bound"
+        return self.parent.services.read(self.entity['service_name'])
+
+    @property
+    def account(self) -> 'Account':
+        return self.parent.accounts.read(self.entity['account_name'])
+
+    def set_state(self, state: str):
+        """Sets the state for the resource
+        Args:
+            state(str): Which state
+            **kwargs: Optional args
+
+        Returns(Application): Application resource instance
+        """
+        if state == 'suspend':
+            return self.update({'suspend': True})
+        if state == 'resume':
+            return self.update({'suspend': False})
+        return self
+

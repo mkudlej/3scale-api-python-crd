@@ -272,6 +272,30 @@ SPEC_PROMOTE = {
     }
 }
 
+SPEC_APPLICATION = {
+    'apiVersion': 'capabilities.3scale.net/v1beta1',
+    'kind': 'Application',
+    'metadata': {
+        'name': None,
+        'namespace': None,
+    },
+    'spec': {
+        'name': None,
+        'providerAccountRef': {
+            'name': None,
+        },
+        'description': None,
+        'accountCR': {
+            'name': None,
+        },
+        'productCR': {
+            'name': None,
+        },
+        'applicationPlanName': None,
+        'suspend': False,
+    },
+}
+
 KEYS_SERVICE = {
     'description': 'description',
     'name': 'name',
@@ -481,6 +505,13 @@ KEYS_PROMOTE = {
     'productCRName': 'productCRName',
     'production': 'production',
     'deleteCR': 'deleteCR',
+}
+
+KEYS_APPLICATION = {
+    'description': 'description',
+    'name': 'name',
+    'plan_name': 'applicationPlanName',
+    'suspend': 'suspend',
 }
 
 SPEC_SECRET = {

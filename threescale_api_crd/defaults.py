@@ -246,7 +246,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                         if self.__class__.__name__ in ['Tenants']:
                             if status.get('adminId', None) and status.get('tenantId', None):
                                 created_objects.append(obj)
-                        elif self.__class__.__name__ in ['Promotes']:
+                        elif self.__class__.__name__ in ['Promotes', 'Applications']:
                             state = {'Ready': status['conditions'][0]['status'] == 'True'}
                             if state['Ready']:
                                 created_objects.append(obj)
@@ -400,7 +400,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             return True
         elif self.CRD_IMPLEMENTED:
             resource.crd.delete()
-            if self.__class__.__name__ not in ['Services', 'Backends', 'Tenants', 'Accounts', 'AccountUsers', 'Promotes', 'OpenApis']:
+            if self.__class__.__name__ not in ['Services', 'Backends', 'Tenants', 'Accounts', 'AccountUsers', 'Promotes', 'OpenApis', 'Applications']:
                 return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
             else:
                 return True
@@ -557,7 +557,12 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         elif self.CRD_IMPLEMENTED:
             new_params = copy.deepcopy(new_params)
             self.before_update(new_params, resource)
-            new_spec = self.translate_to_crd(new_params)
+            new_spec = self.translate_to_crd(new_params, self.trans_item)
+            if self.__class__.__name__ in ['Applications']:
+                new_spec['productCR'] = {}
+                new_spec['productCR']['name'] = new_params['service_name']
+                new_spec['accountCR'] = {}
+                new_spec['accountCR']['name'] = new_params['account_name']
             if resource.crd is None:
                 resource = resource.read()
                 if isinstance(resource, list):

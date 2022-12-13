@@ -153,14 +153,15 @@ def application_plan(api, service, application_plan_params) -> ApplicationPlan:
 
 
 @pytest.fixture(scope='module')
-def application_params(application_plan):
+def application_params(application_plan, service, account):
     suffix = get_suffix()
     name = f"test-{suffix}"
-    return dict(name=name, description=name, plan_id=application_plan['id'])
+    return dict(name=name, description=name, plan_id=application_plan['id'],
+                service_id=service['id'], account_id=account['id'])
 
 
 @pytest.fixture(scope='module')
-def application(account, application_plan, application_params) -> Application:
+def application(account, service, application_plan, application_params) -> Application:
     resource = account.applications.create(params=application_params)
     yield resource
     cleanup(resource)

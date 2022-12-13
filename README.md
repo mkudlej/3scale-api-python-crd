@@ -36,8 +36,9 @@ and to have valid `oc` tool session.
 - Services
 - Tenants
 - ProxyConfigPromote
+- Applications
 
-Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 -vvvv -s ./tests/integration/test_integration_activedocs.py ./tests/integration/test_integration_services.py ./tests/integration/test_integration_backends.py ./tests/integration/test_integration_policy_registry.py ./tests/integration/test_integration_application_plan.py ./tests/integration/test_integration_policies.py ./tests/integration/test_integration_accounts.py ./tests/integration/test_integration_backend_mapping_rules.py ./tests/integration/test_integration_custom_tenant.py ./tests/integration/test_integration_limit.py ./tests/integration/test_integration_pricing_rules.py ./tests/integration/test_integration_promotes.py |& tee f`
+Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 -vvvv -s ./tests/integration/test_integration_activedocs.py ./tests/integration/test_integration_services.py ./tests/integration/test_integration_backends.py ./tests/integration/test_integration_policy_registry.py ./tests/integration/test_integration_application_plan.py ./tests/integration/test_integration_policies.py ./tests/integration/test_integration_accounts.py ./tests/integration/test_integration_backend_mapping_rules.py ./tests/integration/test_integration_custom_tenant.py ./tests/integration/test_integration_limit.py ./tests/integration/test_integration_pricing_rules.py ./tests/integration/test_integration_promotes.py ./tests/integration/test_integration_application.py |& tee f`
  
 ### TODO
 
