@@ -35,14 +35,19 @@ def test_promote_can_be_updated(api, promote):
 
 # these tests should run in sequence
 @pytest.mark.order(1)
-def test_promote_only_to_production(api, promote):
+def test_promote_to_production(api, mapping_rule, proxy, backend_usage):
     """
+    Promotes to production. This promotion actually promotes to staging first and then to production.
     """
-    
-
+    mapping_rule['delta'] += 1
+    mapping_rule.update()
+    proxy.promote()
 
 @pytest.mark.order(2)
-def test_promote_only_to_staging(api, promote):
+def test_promote_only_to_staging(api, mapping_rule, proxy, backend_usage):
     """
+    Promotes to staging only.
     """
-    pass
+    mapping_rule['delta'] += 1
+    mapping_rule.update()
+    proxy.deploy()

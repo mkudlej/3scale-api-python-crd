@@ -10,7 +10,7 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
     """
     Threescale client for CRD.
     """
-    def __init__(self, ocp_provider_ref, url, token, *args, **kwargs):
+    def __init__(self, url, token, ocp_provider_ref, *args, **kwargs):
         super().__init__(url, token, *args, **kwargs)
         self._ocp_provider_ref = ocp_provider_ref
         self._ocp_namespace = ocp.get_project_name()
@@ -27,7 +27,7 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
         self._openapis = resources.OpenApis(parent=self, instance_klass=resources.OpenApi)
         self._tenants = resources.Tenants(parent=self, instance_klass=resources.Tenant)
         self._promotes = resources.Promotes(parent=self, instance_klass=resources.Promote)
-        self._applications = resources.Applications(parent=self, instance_klass=resources.Application)
+        self._applications = resources.Applications(parent=self, account=None, instance_klass=resources.Application)
 
     @property
     def services(self) -> resources.Services:

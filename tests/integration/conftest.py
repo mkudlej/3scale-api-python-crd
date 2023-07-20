@@ -17,9 +17,9 @@ load_dotenv()
 
 
 def cleanup(resource):
-#    resource.delete()
-#    assert not resource.exists()
-    pass
+    resource.delete()
+    assert not resource.exists()
+#    pass
 
 
 def get_suffix() -> str:
@@ -142,7 +142,7 @@ def acc_user2(account, acc_user, acc_user2_params):
 @pytest.fixture(scope='module')
 def application_plan_params(service) -> dict:
     suffix = get_suffix()
-    return dict(name=f"test-{suffix}", setup_fee="1.00", publish=True, cost_per_month="3.00")
+    return dict(name=f"test-{suffix}", setup_fee="1.00", state_event="publish", cost_per_month="3.00")
 
 
 @pytest.fixture(scope='module')
@@ -161,7 +161,7 @@ def application_params(application_plan, service, account):
 
 
 @pytest.fixture(scope='module')
-def application(account, service, application_plan, application_params) -> Application:
+def application(service, application_plan, application_params, account) -> Application:
     resource = account.applications.create(params=application_params)
     yield resource
     cleanup(resource)
@@ -177,7 +177,7 @@ def backend_usage_params(service, backend):
     return {
         'service_id': service['id'],
         'backend_id': backend['id'],
-        'path': '/get',
+        'path': '/',
     }
 
 
@@ -207,7 +207,7 @@ def metric_params(service):
 def backend_metric_params():
     suffix = get_suffix()
     friendly_name = f'test-metric-{suffix}'
-    name = f'{friendly_name}'.replace('-', '_')
+    name = f'{friendly_name}'.replace('-', '')
     return dict(friendly_name=friendly_name,
                 name=name, unit='count')
 
@@ -222,10 +222,11 @@ def updated_metric_params(metric_params):
 
 @pytest.fixture(scope='module')
 def backend_updated_metric_params(backend_metric_params):
+    updated = backend_metric_params.copy()
     suffix = get_suffix()
     friendly_name = f'test-updated-metric-{suffix}'
-    backend_metric_params['friendly_name'] = f'/get/{friendly_name}'
-    return backend_metric_params
+    updated['friendly_name'] = f'/get/{friendly_name}'
+    return updated
 
 
 @pytest.fixture(scope='module')
@@ -287,7 +288,7 @@ def backend_mapping_rule_params(backend, backend_metric):
     Fixture for getting paramteres for mapping rule for backend.
     """
     back = backend_metric['id']
-    return dict(http_method='GET', pattern='/anything/get/id', metric_id=back,
+    return dict(http_method='GET', pattern='/anything/get/ida', metric_id=back,
                 delta=1)
 
 
@@ -324,7 +325,7 @@ def mapping_rule(service, mapping_rule_params) -> MappingRule:
 
 
 @pytest.fixture(scope='module')
-def backend_mapping_rule(backend, backend_mapping_rule_params) -> BackendMappingRule:
+def backend_mapping_rule(backend, backend_metric, backend_mapping_rule_params) -> BackendMappingRule:
     """
     Fixture for getting mapping rule for backend.
     """
@@ -402,11 +403,11 @@ def backend(backend_params, api) -> Backend:
 
 
 @pytest.fixture(scope='module')
-def backend_metric(backend, metric_params) -> Metric:
+def backend_metric(backend, backend_metric_params) -> Metric:
     """
     Fixture for getting backend metric.
     """
-    resource = backend.metrics.create(params=metric_params)
+    resource = backend.metrics.create(params=backend_metric_params)
     yield resource
     cleanup(resource)
 

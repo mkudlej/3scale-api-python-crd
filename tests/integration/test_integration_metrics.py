@@ -22,11 +22,11 @@ def test_should_read_metric(metric, metric_params):
     asserts.assert_resource_params(resource, metric_params)
 
 def test_should_update_metric(service, metric, updated_metric_params):
-    lcount = service.metric.list()
+    lcount = service.metrics.list()
     resource = metric.update(params=updated_metric_params)
     asserts.assert_resource(resource)
     asserts.assert_resource_params(resource, updated_metric_params)
-    assert lcount == service.metric.list()
+    assert lcount == service.metrics.list()
 
 # end of tests important for CRD - CRU + list
 

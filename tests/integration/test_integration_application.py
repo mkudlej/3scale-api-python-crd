@@ -42,7 +42,7 @@ def update_application_params(application_plan2):
 @pytest.fixture(scope='module')
 def application_plan_params2(service):
     suffix = secrets.token_urlsafe(8)
-    return dict(name=f"test-{suffix}", setup_fee="1.00", publish=True, cost_per_month="3.00")
+    return dict(name=f"test-{suffix}", setup_fee="1.00", state_event='publish', cost_per_month="3.00")
 
 
 @pytest.fixture(scope='module')

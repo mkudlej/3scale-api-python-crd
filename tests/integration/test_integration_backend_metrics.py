@@ -20,7 +20,7 @@ def test_should_read_metric(backend_metric, backend_metric_params):
     asserts.assert_resource(resource)
     asserts.assert_resource_params(resource, backend_metric_params)
 
-def test_should_update_metric(backend_metric, backend_updated_metric_params):
+def test_should_update_metric(backend, backend_metric, backend_metric_params, backend_updated_metric_params):
     lcount = len(backend.metrics.list())
     resource = backend_metric.update(params=backend_updated_metric_params)
     asserts.assert_resource(resource)
@@ -45,8 +45,8 @@ def test_should_update_metric(backend_metric, backend_updated_metric_params):
 #        backend.metrics.create(params={})
 
 def test_should_apicast_return_403_when_metric_is_disabled(
-        service, backend, backend_mapping_rule, backend_usage, backend_metric_params,
-        application_plan, application, apicast_http_client):
+        service, backend, backend_usage, backend_metric_params, application_plan,
+        application, apicast_http_client):
     """Metric is disabled when its limit is set to 0."""
 
     bmetric_params = backend_metric_params.copy()
@@ -57,13 +57,16 @@ def test_should_apicast_return_403_when_metric_is_disabled(
     back_mapping = backend.mapping_rules.create(params=mapping_params)
     
     limits = application_plan.limits(back_metric)
-    limits.create(params=dict(period='month', value=0))
+    back_lim = limits.create(params=dict(period='month', value=0))
 
     proxy = service.proxy.list()
     proxy.deploy()
 
-    response = apicast_http_client.get(path=f"{backend_usage['path']}{back_mapping['pattern']}")
+    response = apicast_http_client.get(path=f"{back_mapping['pattern']}")
     assert response.status_code == 403
+    back_lim.delete()
+    back_mapping.delete()
+    back_metric.delete()
 
 
 @backoff.on_predicate(backoff.expo, lambda resp: resp.status_code == 200,
@@ -79,8 +82,7 @@ def get_user_key_from_application(app, proxy):
 
 
 def test_should_apicast_return_429_when_limits_exceeded(
-        service, backend, backend_mapping_rule, backend_usage, application_plan,
-        application, apicast_http_client):
+        service, backend, backend_usage, application_plan, application, apicast_http_client):
     metric_params = dict(name='limits_exceeded', unit='count',
                          friendly_name='Limits Exceeded')
     back_metric = backend.metrics.create(params=metric_params)
@@ -88,16 +90,19 @@ def test_should_apicast_return_429_when_limits_exceeded(
     mapping_params = dict(http_method='GET', pattern='/anything/limits/exceeded', metric_id=back_metric['id'], delta=1)
     back_mapping = backend.mapping_rules.create(params=mapping_params)
     
-    application_plan.limits(back_metric).create(params=dict(period='day', value=1))
+    back_lim = application_plan.limits(back_metric).create(params=dict(period='day', value=1))
 
     proxy = service.proxy.list()
     proxy.deploy()
 
-    response = apicast_http_client.get(path=f"{backend_usage['path']}{back_mapping['pattern']}")
+    response = apicast_http_client.get(path=f"{back_mapping['pattern']}")
     while response.status_code == 200:
-        response = apicast_http_client.get(path=f"{backend_usage['path']}{back_mapping['pattern']}")
+        response = apicast_http_client.get(path=f"{back_mapping['pattern']}")
 
     assert response.status_code == 429
+    back_lim.delete()
+    back_mapping.delete()
+    back_metric.delete()
 
 
 #def test_should_remove_limits_and_pricings_on_metric_deletion(

@@ -28,7 +28,7 @@ def test_application_plan_can_be_read_by_name(service, application_plan_params, 
 @pytest.fixture(scope='module')
 def update_params():
     suffix = secrets.token_urlsafe(8)
-    return dict(cost_per_month='12.00', setup_fee='50.00', publish=True)
+    return dict(cost_per_month='12.00', setup_fee='50.00', state_event='publish')
 
 def test_application_plan_can_be_updated(service, application_plan, update_params):
     lcount = len(service.app_plans.list())

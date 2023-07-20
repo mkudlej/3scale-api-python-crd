@@ -3,11 +3,18 @@
 echo "#!/bin/bash" > gen_exports.sh
 chmod u+x gen_exports.sh
 
-# Tenant 
+# namespace with 3scale
+
+NAMESPACE="$(oc project -q)"
+if [ $# -gt 0 ]; then
+  NAMESPACE=$1
+fi
+
+# Tenant
 
 SEC_NAME="threescale-provider-account-${RANDOM}"
-DOMAIN="https://$(oc get route | grep 3scale-admin | awk '{print $2}')"
-TOKEN="$(oc get secret system-seed -o go-template --template="{{.data.ADMIN_ACCESS_TOKEN|base64decode}}")"
+DOMAIN="https://$(oc get route --namespace=${NAMESPACE} | grep 3scale-admin | awk '{print $2}')"
+TOKEN="$(oc get secret system-seed --namespace=${NAMESPACE} -o go-template --template="{{.data.ADMIN_ACCESS_TOKEN|base64decode}}")"
 
 echo "curl -X POST "${DOMAIN}/admin/api/personal/access_tokens.json" -d 'name=hu&permission=rw&scopes%5B%5D=finance&scopes%5B%5D=stats&scopes%5B%5D=account_management&scopes%5B%5D=policy_registry&access_token=${TOKEN}' -k | jq -r .access_token.value"
 
@@ -25,9 +32,9 @@ echo "export OCP_PROVIDER_ACCOUNT_REF=\"${SEC_NAME}\"" >> gen_exports.sh
 
 SEC_NAME="threescale-master-account-${RANDOM}"
 
-DOMAIN="https://$(oc get route | grep master | awk '{print $2}')"
+DOMAIN="https://$(oc get route --namespace=${NAMESPACE} | grep master | awk '{print $2}')"
 
-TOKEN="$(oc get secret system-seed -o go-template --template="{{.data.MASTER_ACCESS_TOKEN|base64decode}}")"
+TOKEN="$(oc get secret system-seed --namespace=${NAMESPACE} -o go-template --template="{{.data.MASTER_ACCESS_TOKEN|base64decode}}")"
 
 echo "curl -X POST "${DOMAIN}/admin/api/personal/access_tokens.json" -d 'name=hu&permission=rw&scopes%5B%5D=stats&scopes%5B%5D=account_management&scopes%5B%5D=policy_registry&access_token=${TOKEN}' -k | jq -r .access_token.value"
 ACCESS_TOKEN="$(curl -X POST "${DOMAIN}/admin/api/personal/access_tokens.json" -d "name=hu&permission=rw&scopes%5B%5D=stats&scopes%5B%5D=account_management&scopes%5B%5D=policy_registry&access_token=${TOKEN}" -k | jq -r .access_token.value)"

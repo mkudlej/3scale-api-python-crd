@@ -8,6 +8,40 @@ SERVICE_AUTH = {
     'oidc': 'oidc'
 }
 
+SERVICE_AUTH_DEFS = {
+    '1': {
+             'userkey': {
+                 'authUserKey': 'token',
+                 'credentials': 'authorization',
+                 'gatewayResponse': {},
+             },
+         },
+    '2': {
+             'appKeyAppID': {
+                 'appID': 'app_id',
+                 'appKey': 'app_key',
+                 'credentials': 'authorization',
+                 'gatewayResponse': {},
+             },
+         },
+    'oidc': {
+             'oidc': {
+                 'issuerEndpoint': None,
+                 'issuerType': 'keycloak',
+                 'authenticationFlow': {
+                     'standardFlowEnabled': False,
+                     'implicitFlowEnabled': False,
+                     'serviceAccountsEnabled': False,
+                     'directAccessGrantsEnabled': True,
+                     },
+                 'jwtClaimWithClientID': None,
+                 'jwtClaimWithClientIDType': None,
+                 'credentials': 'authorization',
+                 'gatewayResponse': {},
+             },
+        },
+    }
+
 SPEC_SERVICE = {
     'apiVersion': 'capabilities.3scale.net/v1beta1',
     'kind': 'Product',
@@ -113,7 +147,7 @@ SPEC_APP_PLANS = {
         'trialPeriod': None,
         'setupFee': None,
         'costMonth': None,
-        'publish': True,
+        'published': True,
         'pricingRules': None,
         'limits': None
     }
@@ -434,7 +468,7 @@ KEYS_APP_PLANS = {
     'trial_period_days': 'trialPeriod',
     'setup_fee': 'setupFee',
     'cost_per_month': 'costMonth',
-    'publish': 'published',
+    'state_event': 'published',
     'system_name': 'system_name',
     'limits': 'limits',
     'pricingRules': 'pricingRules',

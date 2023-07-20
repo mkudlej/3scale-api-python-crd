@@ -220,8 +220,6 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                     self.parent.update({'pricingRules':maps})
                     maps = self.get_list(typ='normal')
                     return resources.PricingRules.get_from_list(maps, params, spec)
-
-
                 for mapi in maps:
                     if all([params[key] == mapi[key] for key in params.keys()]):
                         return mapi
@@ -233,7 +231,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 list_objs = self.read_crd(self._entity_collection,
                                           result.out().strip().split('/')[1])
                 created_objects = []
-                counter = 5
+                counter = 10
                 while len(list_objs) > 0 and counter > 0:
                     list_objs2 = []
                     for obj in list_objs:
@@ -303,7 +301,9 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                     if  idp == parent_id:
                         service_with_maps = prod
                         break
-                spec = (DictQuery(service_with_maps.as_dict()).get(klass.GET_PATH or self.get_path())) or []
+                spec = {}
+                if service_with_maps != {}:
+                    spec = (DictQuery(service_with_maps.as_dict()).get(klass.GET_PATH or self.get_path())) or []
                 if isinstance(spec, list):
                     return [{'spec': obj, 'crd': service_with_maps} for obj in spec]
                 elif 'apicastHosted' not in spec.keys(): # exception for Proxy
@@ -360,7 +360,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 maps = []
             for mapi in mapsi:
                 if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                    map_ret = self.translate_to_crd(mapi, self.trans_item)
+                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
                     if map_ret != spec:
                         maps.append(map_ret)
                 elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
@@ -429,6 +429,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 new_params['id'] =\
                     (new_params['path'], new_params['backend_id'], new_params['service_id'])
             elif self.__class__.__name__ in ['ApplicationPlans']:
+                self.before_update(new_params, resource)
                 new_params['id'] = new_params['system_name']
             elif self.__class__.__name__ in ['Proxies']:
                 new_params['id'] = self.parent.entity_id
@@ -462,7 +463,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             for mapi in mapsi:
                 if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
                     map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if not (map_ret['httpMethod'] == spec['httpMethod'] and map_ret['metricMethodRef'] == spec['metricMethodRef']):
+                    if not (map_ret['httpMethod'] == spec['httpMethod'] and map_ret['pattern'] == spec['pattern']):
                         maps.append(map_ret)
                 elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
                     map_ret = self.translate_to_crd(mapi.entity, self.trans_item)

@@ -39,10 +39,15 @@ class Services(DefaultClientCRD, threescale_api.resources.Services):
     def before_create(self, params, spec):
         """Called before create."""
         if 'mapping_rules' in params.keys():
-            spec['mappingRules'] = params['mapping_rules']
+            spec['spec']['mappingRules'] = params['mapping_rules']
+        if 'backend_version' in params.keys():
+            spec['spec']['deployment']['apicastHosted']['authentication'] = constants.SERVICE_AUTH_DEFS[params['backend_version']]
+
 
     def before_update(self, new_params, resource):
         """Called before update."""
+        if 'backend_version' in new_params.keys():
+            resource.entity['deployment']['apicastHosted']['authentication'] = constants.SERVICE_AUTH_DEFS[new_params['backend_version']]
 
     @property
     def metrics(self) -> 'Metrics':
@@ -155,6 +160,8 @@ class MappingRules(DefaultClientCRD, threescale_api.resources.MappingRules):
 
     def before_create(self, params, spec):
         """Called before create."""
+        if 'last' in params.keys() and isinstance(params['last'], str):
+            params.update({'last': params['last'] == "true"})
 
     def get_list(self, typ=None):
         """ Returns list of entities. """
@@ -414,6 +421,8 @@ class BackendUsages(DefaultClientCRD, threescale_api.resources.BackendUsages):
 
     def before_create(self, params, spec):
         """Called before create."""
+        if "backend_api_id" in params:
+            params.update({"backend_id": params.pop("backend_api_id")})
 
     def before_update(self, new_params, resource):
         """Called before update."""
@@ -497,9 +506,13 @@ class ApplicationPlans(DefaultClientCRD, threescale_api.resources.ApplicationPla
 
     def before_create(self, params, spec):
         """Called before create."""
+        spec['spec']['published'] == params.pop('state_event', 'publish') == 'publish'
+        params.update({'setup_fee': '{:.2f}'.format(float(params.get('setup_fee', '0')))})
 
     def before_update(self, new_params, resource):
         """Called before update."""
+        new_params.update({'state_event': new_params.get('state_event', 'publish') == 'publish'})
+        new_params.update({'setup_fee': '{:.2f}'.format(float(new_params.get('setup_fee', '0')))})
 
     def get_list(self, typ=None):
         """ Returns list of entities. """
@@ -987,18 +1000,24 @@ class Applications(DefaultClientCRD, threescale_api.resources.Applications):
     NESTED = False
     ID_NAME = 'applicationID'
 
-    def __init__(self, parent, *args, entity_name='application',
+    def __init__(self, parent, account, *args, entity_name='application',
                  entity_collection='applications', **kwargs):
+        self.account = account
         self.trans_item = None
+        self._url = (account.client.url + '/' + str(account.entity_id)) if account else parent.url
+        self._url += '/applications'
         super().__init__(*args, parent=parent, entity_name=entity_name, entity_collection=entity_collection, **kwargs)
+
+    @property
+    def url(self) -> str:
+        return self._url
 
     def before_create(self, params, spec):
         """Called before create."""
-        service = self.parent.services.read(params['service_id'])
-        account = self.parent.accounts.read(params['account_id'])
+        service = self.parent.services.read(params.pop('service_id'))
         plan = service.app_plans.read(params['plan_id'])
         spec['spec']['productCR']['name'] = service['system_name']
-        spec['spec']['accountCR']['name'] = account['name']
+        spec['spec']['accountCR']['name'] = self.account['name']
         spec['spec']['applicationPlanName'] = plan['system_name']
 
     def before_update(self, new_params, resource):
@@ -1537,6 +1556,7 @@ class BackendUsage(DefaultResourceCRD, threescale_api.resources.BackendUsage):
                         entity[cey] = value
             entity['service_id'] = int(crd.as_dict().get('status', {}).get(Services.ID_NAME, 0))
             back = client.threescale_client.backends.read_by_name(spec['name'])
+            back = client.threescale_client.backends.read_by_name(spec['name'])
             entity['backend_id'] = int(back['id'])
             # simulate entity_id by list of attributes
             entity['id'] = (entity['path'], entity['backend_id'], entity['service_id'])
@@ -1583,6 +1603,7 @@ class ApplicationPlan(DefaultResourceCRD, threescale_api.resources.ApplicationPl
                         entity[cey] = value
             if 'system_name' in spec:
                 entity['name'] = spec['system_name']
+            spec['state_event'] = 'publish' if spec.get('state_event', False) else 'unpublish'
             # simulate id because CRD has no ids
             # entity['id'] = entity['name']
             # it is not possible to simulate id here because it is used in Application, which is not implemented
@@ -1708,7 +1729,7 @@ class Account(DefaultResourceCRD, threescale_api.resources.Account):
 
     @property
     def applications(self) -> Applications:
-        return Applications(parent=self.parent, instance_klass=Application)
+        return Applications(parent=self.parent, instance_klass=Application, account=self)
 
 
 class AccountUser(DefaultResourceCRD, threescale_api.resources.AccountUser):
@@ -2026,6 +2047,17 @@ class Application(DefaultResourceCRD, threescale_api.resources.Application):
             entity['service_name'] = spec.get('productCR').get('name')
             entity['account_name'] = spec.get('accountCR').get('name')
 
+            # load auth keys
+            client = kwargs['client']
+            client.__class__.CRD_IMPLEMENTED = False
+            acc = client.parent.accounts.select_by(name=entity['account_name'])[0]
+            app = acc.applications.read(entity['id'])
+            if 'user_key' in app.entity.keys():
+                entity['user_key'] = app['user_key']
+            elif 'application_id' in app.entity.keys():
+                entity['application_id'] = app['application_id']
+            client.__class__.CRD_IMPLEMENTED = True
+
             super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
         else:
             # this is not here because of some backup, but because we need to have option
@@ -2035,11 +2067,14 @@ class Application(DefaultResourceCRD, threescale_api.resources.Application):
     @property
     def service(self) -> 'Service':
         "The service to which this application is bound"
-        return self.parent.services.read(self.entity['service_name'])
+        return self.parent.services.read_by_name(self.entity['service_name'])
 
     @property
     def account(self) -> 'Account':
-        return self.parent.accounts.read(self.entity['account_name'])
+        if self.client.account:
+            return self.client.account
+        else:
+            return self.parent.accounts.read_by_name(self.entity['account_name'])
 
     def set_state(self, state: str):
         """Sets the state for the resource

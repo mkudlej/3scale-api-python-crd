@@ -14,7 +14,8 @@ pytest-order = "*"
 
 [packages]
 #3scale-api = {editable = true,path = "./../mkudlej-3scale-api-python"} 
-3scale-api = {git = "https://github.com/3scale/3scale-api-python.git",editable = true,ref = "master"}
+#3scale-api = {git = "https://github.com/3scale/3scale-api-python.git",editable = true,ref = "master"}
+3scale-api = "*"
 openshift-client = "*"
 
 [requires]
