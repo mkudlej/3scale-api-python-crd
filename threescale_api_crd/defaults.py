@@ -119,8 +119,11 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 spec['metadata']['namespace'] = self.threescale_client.ocp_namespace
                 spec['metadata']['name'] = name
                 if self.__class__.__name__ not in ['Tenants']:
-                    spec['spec']['providerAccountRef']['name'] = self.threescale_client.ocp_provider_ref
-
+                    if self.threescale_client.ocp_provider_ref is None:
+                        spec['spec'].pop('providerAccountRef')
+                    else:
+                        spec['spec']['providerAccountRef']['name'] = self.threescale_client.ocp_provider_ref
+                        spec['spec']['providerAccountRef']['namespace'] = self.threescale_client.ocp_namespace
             self.before_create(params, spec)
 
             spec['spec'].update(self.translate_to_crd(params))
@@ -237,31 +240,32 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                     for obj in list_objs:
                         obj.refresh()
                         status = obj.as_dict().get('status', None)
-                        if not status:
-                            continue
-                        new_id = status.get(self.ID_NAME, 0)
-                        # exception because of https://issues.redhat.com/browse/THREESCALE-8273
-                        if self.__class__.__name__ in ['Tenants']:
-                            if status.get('adminId', None) and status.get('tenantId', None):
-                                created_objects.append(obj)
-                        elif self.__class__.__name__ in ['Promotes', 'Applications']:
-                            state = {'Ready': status['conditions'][0]['status'] == 'True'}
-                            if state['Ready']:
-                                created_objects.append(obj)
+                        if status:
+                            new_id = status.get(self.ID_NAME, 0)
+                            # exception because of https://issues.redhat.com/browse/THREESCALE-8273
+                            if self.__class__.__name__ in ['Tenants']:
+                                if status.get('adminId', None) and status.get('tenantId', None):
+                                    created_objects.append(obj)
+                            elif self.__class__.__name__ in ['Promotes', 'Applications']:
+                                state = {'Ready': status['conditions'][0]['status'] == 'True'}
+                                if state['Ready']:
+                                    created_objects.append(obj)
+                                else:
+                                    list_objs2.append(obj)
                             else:
-                                list_objs2.append(obj)
+                                state = {'Failed': True, 'Invalid': True, 'Synced': False, 'Ready': False}
+                                for sta in status['conditions']:
+                                    state[sta['type']] = (sta['status'] == 'True')
+                                if state['Failed'] or state['Invalid'] or\
+                                    (not (state['Synced'] or state['Ready'])) or\
+                                    (new_id == 0):
+                                    list_objs2.append(obj)
+                                else:
+                                    created_objects.append(obj)
                         else:
-                            state = {'Failed': True, 'Invalid': True, 'Synced': False, 'Ready': False}
-                            for sta in status['conditions']:
-                                state[sta['type']] = (sta['status'] == 'True')
-                            if state['Failed'] or state['Invalid'] or\
-                                (not (state['Synced'] or state['Ready'])) or\
-                                (new_id == 0):
-                                list_objs2.append(obj)
-                            else:
-                                created_objects.append(obj)
+                            list_objs2.append(obj)
                     list_objs = list_objs2
-                    if list_objs2:
+                    if not list_objs:
                         time.sleep(20)
                     counter -= 1
 
@@ -572,7 +576,13 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             new_crd = resource.crd.as_dict()
             new_crd['spec'].update(new_spec)
             if self.__class__.__name__ not in ['Tenants']:
-                new_crd['spec']['providerAccountRef'] = {'name': self.threescale_client.ocp_provider_ref}
+                if self.threescale_client.ocp_provider_ref is None:
+                    new_crd['spec'].pop('providerAccountRef', None)
+                else:
+                    new_crd['spec']['providerAccountRef'] = {
+                        'name': self.threescale_client.ocp_provider_ref,
+                        'namespace': self.threescale_client.ocp_namespace
+                    }
             resource.crd.model = ocp.Model(new_crd)
             result = resource.crd.replace()
             #    def _modify(apiobj):
