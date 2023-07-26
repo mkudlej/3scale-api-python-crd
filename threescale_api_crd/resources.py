@@ -1157,14 +1157,14 @@ class Proxy(DefaultResourceCRD, threescale_api.resources.Proxy):
 
             # there is 'endpoint' and 'sandbox_endpoint' just in apicastSelfManaged and not in apicastHosted
             if ('endpoint' not in entity) or ('sandbox_endpoint' not in entity):
-                self.client.__class__.CRD_IMPLEMENTED = False
-                self.parent.client.__class__.CRD_IMPLEMENTED = False
+                self.client.disable_crd_implemented()
+                self.parent.client.disable_crd_implemented()
                 tmp_proxy = threescale_api.resources.Services.read(self.parent.client,
                                                                    self.parent.entity_id).proxy.fetch()
                 for name in ['endpoint', 'sandbox_endpoint']:
                     self.entity[name] = tmp_proxy[name]
-                self.client.__class__.CRD_IMPLEMENTED = True
-                self.parent.client.__class__.CRD_IMPLEMENTED = True
+                self.client.enable_crd_implemented()
+                self.parent.client.enable_crd_implemented()
         else:
             # this is not here because of some backup, but because we need to have option
             # to creater empty object without any data. This is related to "lazy load"
@@ -1609,12 +1609,12 @@ class ApplicationPlan(DefaultResourceCRD, threescale_api.resources.ApplicationPl
             # it is not possible to simulate id here because it is used in Application, which is not implemented
             entity['id'] = ApplicationPlan.system_name_to_id.get(entity['system_name'], None)
             if not entity['id']:
-                client.__class__.CRD_IMPLEMENTED = False
+                client.disable_crd_implemented()
                 plan = threescale_api.resources.ApplicationPlans.read_by_name(client, entity['system_name'])
                 entity['id'] = plan['id']
                 ApplicationPlan.system_name_to_id[entity['system_name']] = int(entity['id'])
                 ApplicationPlan.id_to_system_name[entity['id']] = entity['system_name']
-                client.__class__.CRD_IMPLEMENTED = True
+                client.enable_crd_implemented()
             self.entity_id = entity.get('id')
 
             super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
@@ -1914,22 +1914,22 @@ class Limit(DefaultResourceCRD, threescale_api.resources.Limit):
                 entity['id'] = (entity['period'], entity['metric_name'])
             self.entity_id = entity.get('id')
             if not entity['metric_id']:
-                Metrics.CRD_IMPLEMENTED = False
-                BackendMetrics.CRD_IMPLEMENTED = False
                 if 'backend' in spec['metricMethodRef']:
+                    backend.metrics.disable_crd_implemented()
                     entity['metric_id'] = int(threescale_api.resources.BackendMetrics.read_by_name(
                         backend.metrics,
                         entity['metric_name'] + '.' + str(backend['id'])).entity_id)
                     BackendMetric.system_name_to_id[entity['metric_name']] = entity['metric_id']
                     BackendMetric.id_to_system_name[entity['metric_id']] = entity['metric_name']
+                    backend.metrics.enable_crd_implemented()
                 else:
+                    client.topmost_parent().metrics.disable_crd_implemented()
                     entity['metric_id'] = int(threescale_api.resources.Metrics.read_by_name(
                         client.topmost_parent().metrics,
                         entity['metric_name']).entity_id)
                     Metric.system_name_to_id[entity['metric_name']] = entity['metric_id']
                     Metric.id_to_system_name[entity['metric_id']] = entity['metric_name']
-                BackendMetrics.CRD_IMPLEMENTED = True
-                Metrics.CRD_IMPLEMENTED = True
+                    client.topmost_parent().metrics.enable_crd_implemented()
 
             super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
         else:
@@ -1972,22 +1972,22 @@ class PricingRule(DefaultResourceCRD, threescale_api.resources.PricingRule):
                 entity['id'] = (entity['min'], entity['max'], entity['metric_name'])
             self.entity_id = entity.get('id')
             if not entity['metric_id']:
-                Metrics.CRD_IMPLEMENTED = False
-                BackendMetrics.CRD_IMPLEMENTED = False
                 if 'backend' in spec['metricMethodRef']:
+                    backend.metrics.disable_crd_implemented()
                     entity['metric_id'] = int(threescale_api.resources.BackendMetrics.read_by_name(
                         backend.metrics,
                         entity['metric_name'] + '.' + str(backend['id'])).entity_id)
                     BackendMetric.system_name_to_id[entity['metric_name']] = entity['metric_id']
                     BackendMetric.id_to_system_name[entity['metric_id']] = entity['metric_name']
+                    backend.metrics.enable_crd_implemented()
                 else:
+                    client.topmost_parent().metrics.disable_crd_implemented()
                     entity['metric_id'] = int(threescale_api.resources.Metrics.read_by_name(
                         client.topmost_parent().metrics,
                         entity['metric_name']).entity_id)
                     Metric.system_name_to_id[entity['metric_name']] = entity['metric_id']
                     Metric.id_to_system_name[entity['metric_id']] = entity['metric_name']
-                BackendMetrics.CRD_IMPLEMENTED = True
-                Metrics.CRD_IMPLEMENTED = True
+                    client.topmost_parent().metrics.enable_crd_implemented()
 
             super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
         else:
@@ -2049,14 +2049,14 @@ class Application(DefaultResourceCRD, threescale_api.resources.Application):
 
             # load auth keys
             client = kwargs['client']
-            client.__class__.CRD_IMPLEMENTED = False
+            client.disable_crd_implemented()
             acc = client.parent.accounts.select_by(name=entity['account_name'])[0]
             app = acc.applications.read(entity['id'])
             if 'user_key' in app.entity.keys():
                 entity['user_key'] = app['user_key']
             elif 'application_id' in app.entity.keys():
                 entity['application_id'] = app['application_id']
-            client.__class__.CRD_IMPLEMENTED = True
+            client.enable_crd_implemented()
 
             super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
         else:

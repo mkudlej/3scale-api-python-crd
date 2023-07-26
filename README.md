@@ -48,12 +48,10 @@ see https://github.com/3scale/3scale-operator/blob/master/doc/backend-reference.
 Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 -vvvv -s ./tests/integration/test_integration_activedocs.py ./tests/integration/test_integration_services.py ./tests/integration/test_integration_backends.py ./tests/integration/test_integration_policy_registry.py ./tests/integration/test_integration_application_plan.py ./tests/integration/test_integration_policies.py ./tests/integration/test_integration_accounts.py ./tests/integration/test_integration_backend_mapping_rules.py ./tests/integration/test_integration_custom_tenant.py ./tests/integration/test_integration_limit.py ./tests/integration/test_integration_pricing_rules.py ./tests/integration/test_integration_promotes.py ./tests/integration/test_integration_application.py |& tee f`
  
 ### TODO
-- add disabling CRD - self.client.CRD_IMPLEMENTED = False is wrong
 - create unit integration tests for:
   - methods
   - ProductDeploymentSpec
   - AuthenticationSpec
-- add support of different namespaces
 
 - create jenkins job for running unit tests
 - add proper error messages in case of for example missing required arguments, see test_should_fields_be_required 
