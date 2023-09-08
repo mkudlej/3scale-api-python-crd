@@ -237,20 +237,19 @@ def metric(service, metric_params) -> Metric:
 
 
 @pytest.fixture(scope='module')
-def method_params(service):
+def method_params():
     suffix = get_suffix()
     friendly_name = f'test-method-{suffix}'
     system_name = f'{friendly_name}'.replace('-', '_')
-    return dict(friendly_name=friendly_name, system_name=system_name,
-                unit='hits')
+    return dict(friendly_name=friendly_name, system_name=system_name)
 
 
+# 'friendly_name' is id in CRD for methods
 @pytest.fixture(scope='module')
 def updated_method_params(method_params):
     suffix = get_suffix()
-    friendly_name = f'test-updated-method-{suffix}'
-    method_params['friendly_name'] = friendly_name
-    method_params['system_name'] = f'{friendly_name}'.replace('-', '_')
+    description = f'test-updated-method-{suffix}'
+    method_params['description'] = description
     return method_params
 
 

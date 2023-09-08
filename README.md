@@ -44,12 +44,12 @@ see https://github.com/3scale/3scale-operator/blob/master/doc/backend-reference.
 - Tenants
 - ProxyConfigPromote
 - Applications
+- Methods
 
-Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 -vvvv -s ./tests/integration/test_integration_activedocs.py ./tests/integration/test_integration_services.py ./tests/integration/test_integration_backends.py ./tests/integration/test_integration_policy_registry.py ./tests/integration/test_integration_application_plan.py ./tests/integration/test_integration_policies.py ./tests/integration/test_integration_accounts.py ./tests/integration/test_integration_backend_mapping_rules.py ./tests/integration/test_integration_custom_tenant.py ./tests/integration/test_integration_limit.py ./tests/integration/test_integration_pricing_rules.py ./tests/integration/test_integration_promotes.py ./tests/integration/test_integration_application.py |& tee f`
+Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 -vvvv -s ./tests/integration/ |& tee x`
  
 ### TODO
 - create unit integration tests for:
-  - methods
   - ProductDeploymentSpec
   - AuthenticationSpec
 - implement delete of policies + add unit tests
@@ -58,4 +58,3 @@ Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 -vv
 - implement optimitazation on the oc level:
   - for every test run, label objects - oc label product.capabilities.3scale.net/testyrclkfzyhue test_run=new --overwrite
   - use only objects labeled by test run id - oc get product.capabilities.3scale.net --show-labels=true -l test_run=new
-- add support for Methods

@@ -146,6 +146,7 @@ SPEC_METRIC = {
         'description': None,
     }
 }
+
 SPEC_APP_PLANS = {
     'spec': {
         'name': None,
@@ -360,16 +361,11 @@ SPEC_APPLICATION = {
     },
 }
 
-KEYS_SERVICE = {
-    'description': 'description',
-    'name': 'name',
-    'system_name': 'systemName',
-    'mapping_rules': 'mappingRules',
-    'metrics': 'metrics',
-    'backend_usages': 'backendUsages',
-    'application_plans': 'applicationPlans',
-    'deployment': 'deployment',
-    'policies': 'policies',
+SPEC_METHOD = {
+    'spec': {
+        'friendlyName': None,
+        'description': None,
+    }
 }
 
 KEYS_PROXY_RESPONSES = {
@@ -401,6 +397,7 @@ KEYS_SERVICE = {
     'application_plans': 'applicationPlans',
     'deployment': 'deployment',
     'policies': 'policies',
+    'methods': 'methods',
 }
 
 KEYS_PROXY_RESPONSES = {
@@ -578,6 +575,12 @@ KEYS_APPLICATION = {
     'suspend': 'suspend',
     'service_name': 'productCR',
     'account_name': 'accountCR',
+}
+
+KEYS_METHOD = {
+    'description': 'description',
+    'friendly_name': 'friendlyName',
+    'name': 'name'
 }
 
 SPEC_SECRET = {

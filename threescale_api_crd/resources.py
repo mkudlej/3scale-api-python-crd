@@ -1312,6 +1312,85 @@ class Applications(DefaultClientCRD, threescale_api.resources.Applications):
         else:
             return obj[key]
 
+
+class Methods(DefaultClientNestedCRD, threescale_api.resources.Methods):
+    """ Method client class """
+    CRD_IMPLEMENTED = True
+    SPEC = constants.SPEC_METHOD
+    KEYS = constants.KEYS_METHOD
+    SELECTOR = 'Product'
+    ID_NAME = 'friendly_name'
+    def __init__(self, *args, entity_name='method', entity_collection='methods', **kwargs):
+        super().__init__(*args, entity_name=entity_name, entity_collection=entity_collection,
+                         **kwargs)
+
+    def before_create(self, params, spec):
+        """Called before create."""
+        if 'name' in params:
+            params['friendly_name'] = params.pop('name')
+        if 'system_name' in params:
+            params['friendly_name'] = params.pop('system_name')
+        if 'description' not in params:
+            params['description'] = params['friendly_name']
+
+    def before_update(self, new_params, resource):
+        """Called before update."""
+        new_params['id'] = new_params['name']
+        if resource and 'id' in new_params:
+            resource.entity_id = new_params['id']
+        return self.translate_to_crd(new_params)
+
+    def get_list(self, typ=None):
+        """ Returns list of entities. """
+        return self.parent.methods.list()
+
+    def in_create(self, maps, params, spec):
+        """Do steps to create new instance"""
+        name = params.get(self.ID_NAME)
+        maps[name] = spec['spec']
+        self.topmost_parent().update({'methods': maps})
+        for mapi in self.get_list():
+            if all([params[key] == mapi[key] for key in params.keys()]):
+                return mapi
+        return None
+
+    def get_list_from_spec(self):
+        """ Returns list from spec """
+        return self.parent.crd.as_dict()['spec'].get('methods', {})
+
+    def before_update_list(self, maps, new_params, spec, resource):
+        """ Modify some details in data before updating the list """
+        name = new_params.get(Methods.ID_NAME)
+        maps[name] = spec
+
+    def update_list(self, maps):
+        """ Returns updated list. """
+        return self.topmost_parent().update({'methods': maps})
+
+    def remove_from_list(self, mapsi, spec):
+        """ Returns list without item specified by 'spec'. """
+        maps = {}
+        for mapi in mapsi:
+            map_ret = self.translate_to_crd(mapi.entity)
+            if map_ret != spec:
+                name = mapi[self.ID_NAME]
+                maps[name] = map_ret
+        return maps
+
+    def topmost_parent(self):
+        """
+        Returns topmost parent. In most cases it is the same as parent
+        except of Limits and PricingRules
+        """
+        return self.parent.parent
+
+    def trans_item(self, key, value, obj):
+        """ Translate entity to CRD. """
+        if key != 'name':
+            return obj[key]
+        return None
+
+
 # Resources
 # DefaultResourceCRD,
 
@@ -1802,6 +1881,10 @@ class Metric(DefaultResourceCRD, threescale_api.resources.Metric):
     @property
     def service(self) -> 'Service':
         return self.parent
+
+    @property
+    def methods(self) -> 'Methods':
+        return Methods(parent=self, instance_klass=Method)
 
 #    @property
 #    def entity_id(self) -> int:
@@ -2345,3 +2428,39 @@ class Application(DefaultResourceCRD, threescale_api.resources.Application):
             return self.update({'suspend': False})
         return self
 
+
+class Method(DefaultResourceCRD, threescale_api.resources.Method):
+    GET_PATH = 'spec/methods'
+    system_name_to_id = {}
+    id_to_system_name = {}
+
+    def __init__(self, entity_name='name', **kwargs):
+        entity = None
+        if 'spec' in kwargs:
+            spec = kwargs.pop('spec')
+            crd = kwargs.pop('crd')
+            entity = {}
+            for key, value in spec.items():
+                for cey, walue in constants.KEYS_METHOD.items():
+                    if key == walue:
+                        entity[cey] = value
+            # simulate id because CRD has no ids
+            entity['name'] = entity['friendly_name']
+            entity['system_name'] = entity['friendly_name']
+            entity['id'] = entity['name']
+            self.entity_id = entity.get('id')
+
+            self.entity_id = entity['id']
+            super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
+        else:
+            # this is not here because of some backup, but because we need to have option
+            # to creater empty object without any data. This is related to "lazy load"
+            super().__init__(entity_name=entity_name, **kwargs)
+
+    @property
+    def metric(self) -> 'Metric':
+        return self.parent.metrics.read_by_name('hits')
+
+    @property
+    def service(self) -> 'Service':
+        return self.parent.parent
