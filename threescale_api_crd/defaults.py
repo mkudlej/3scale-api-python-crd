@@ -20,7 +20,6 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
 
     CRD_IMPLEMENTED = False
     SPEC = None
-    NESTED = False
     SELECTOR = None
     KEYS = None
     ID_NAME = None
@@ -31,10 +30,6 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
 
     def get_list(self, typ='normal'):
         """ Returns list of entities. """
-        return []
-
-    def trans_item(self, key, value, obj):
-        """ Translate entity to CRD. """
         return []
 
     def read_crd(self, selector, obj_name=None):
@@ -92,7 +87,6 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         LOG.info(self._log_message("[EXIST] CRD Resource exist ", entity_id=entity_id, args=kwargs))
         return self.fetch(entity_id, **kwargs)
 
-
     def _list(self, **kwargs) -> List['DefaultResource']:
         """Internal list implementation used in list or `select` methods
         Args:
@@ -113,11 +107,20 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         """Some values in CRD cannot contain some characters."""
         return str_in.replace('-', '').replace('_', '').lower()
 
+    @staticmethod
+    def cleanup_spec(spec, keys, params):
+        """ Removes from spec attributes with None value. """
+        for key, value in keys.items():
+            if params.get(key, None) is None and \
+                value in spec['spec'] and \
+                spec['spec'][value] is None:
+                del spec['spec'][value]
+
     def create(self, params: dict = None, **kwargs) -> 'DefaultResource':
-        LOG.info(self._log_message("[CREATE] Create CRD new ", body=params, args=kwargs))
+        LOG.info(self._log_message("[CREATE] Create CRD ", body=params, args=kwargs))
         if self.is_crd_implemented():
             spec = copy.deepcopy(self.SPEC)
-            name = params.get('name') or params.get('username') # Developer User exception
+            name = params.get('name') or params.get('username')  # Developer User exception
             if name is not None:
                 name = self.normalize(name)
                 if params.get('name'):
@@ -127,165 +130,61 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             else:
                 name = self.normalize(''.join(random.choice(string.ascii_letters) for _ in range(16)))
 
-            if not self.NESTED:
-                spec['metadata']['namespace'] = self.threescale_client.ocp_namespace
-                spec['metadata']['name'] = name
-                if self.__class__.__name__ not in ['Tenants']:
-                    if self.threescale_client.ocp_provider_ref is None:
-                        spec['spec'].pop('providerAccountRef')
-                    else:
-                        spec['spec']['providerAccountRef']['name'] = self.threescale_client.ocp_provider_ref
-                        spec['spec']['providerAccountRef']['namespace'] = self.threescale_client.ocp_namespace
+            spec['metadata']['namespace'] = self.threescale_client.ocp_namespace
+            spec['metadata']['name'] = name
+            spec = self._set_provider_ref_new_crd(spec)
             self.before_create(params, spec)
 
             spec['spec'].update(self.translate_to_crd(params))
-            for key, value in self.KEYS.items():
-                if params.get(key, None) is None and \
-                    value in spec['spec'] and \
-                    spec['spec'][value] is None:
-                    del spec['spec'][value]
-            if self.NESTED:
-                if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                    if 'metric_id' not in params.keys():
-                        spec['spec']['metricMethodRef'] = 'hits'
-                    elif isinstance(params['metric_id'], int):
-                        met = self.parent.metrics.read(int(params['metric_id']))
-                        # exception because of backend mapping rules
-                        name = met.entity.get('system_name', met.entity.get('name'))
-                        if '.' in met['system_name']:
-                            spec['spec']['metricMethodRef'] = name.split('.')[0]
-                        spec['spec']['metricMethodRef'] = name
-                    else:
-                        # metric id is tuple
-                        spec['spec']['metricMethodRef'] = params['metric_id'][0]
-                mapsi = self.get_list(typ='full')
-                maps = {}
-                if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules', 'Limits', 'PricingRules']:
-                    maps = []
+            DefaultClientCRD.cleanup_spec(spec, self.KEYS, params)
 
-                for mapi in mapsi:
-                    if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                        maps.append(self.translate_to_crd(mapi.entity, self.trans_item))
-                    elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                        name = mapi[self.ID_NAME]
-                        maps[name] = self.translate_to_crd(mapi.entity, self.trans_item)
-                    elif self.__class__.__name__ in ['BackendUsages']:
-                        map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                        backend_id = mapi['backend_id']
-                        back = self.parent.parent.backends.read(int(backend_id))
-                        maps[back[self.ID_NAME]] = map_ret
-                    elif self.__class__.__name__ in ['ApplicationPlans']:
-                        name = mapi[self.ID_NAME]
-                        maps[name] = self.translate_to_crd(mapi.entity, self.trans_item)
-                    elif self.__class__.__name__ in ['Limits']:
-                        if params['period'] != mapi['period'] or \
-                            params['metric_name'] != mapi['metric_name'] or \
-                            params['plan_id'] != mapi['plan_id']:
-                            ins = self.translate_to_crd(mapi.entity)
-                            ins['metricMethodRef'] = {'systemName': mapi['metric_name']}
-                            if 'backend_name' in mapi.entity:
-                                ins['metricMethodRef']['backend'] = mapi['backend_name']
-                            maps.append(ins)
-                    elif self.__class__.__name__ in ['PricingRules']:
-                        if params['min'] != mapi['min'] or params['max'] != mapi['max'] or \
-                            params['metric_name'] != mapi['metric_name'] or \
-                            params['plan_id'] != mapi['plan_id']:
-                            ins = self.translate_to_crd(mapi.entity)
-                            ins['metricMethodRef'] = {'systemName': mapi['metric_name']}
-                            if 'backend_name' in mapi.entity:
-                                ins['metricMethodRef']['backend'] = mapi['backend_name']
-                            maps.append(ins)
-
-
-                if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                    resources.MappingRules.insert_into_position(maps, params, spec)
-                    self.parent.update({'mapping_rules':maps})
-                    maps = self.parent.mapping_rules.list()
-                    return resources.MappingRules.get_from_position(maps, params)
-
-                elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                    name = params.get('name', params.get('system_name', 'hits'))
-                    if 'name' in spec['spec']:
-                        spec['spec'].pop('name')
-                    maps[name] = spec['spec']
-                    par = self.parent.update({'metrics':maps})
-                    maps = self.get_list()
-                elif self.__class__.__name__ in ['BackendUsages']:
-                    backend_id = spec['spec'].pop('backend_id')
-                    back = self.parent.parent.backends.read(int(backend_id))
-
-                    maps[back[self.ID_NAME]] = spec['spec']
-                    par = self.parent.update({'backend_usages':maps})
-                    maps = self.parent.backend_usages.list()
-                elif self.__class__.__name__ in ['ApplicationPlans']:
-                    if self.ID_NAME in spec['spec']:
-                        params[self.ID_NAME] = DefaultClientCRD.normalize(spec['spec'].pop(self.ID_NAME))
-                    else:
-                        params[self.ID_NAME] = DefaultClientCRD.normalize(spec['spec'].pop('name'))
-                    maps[params[self.ID_NAME]] = spec['spec']
-                    par = self.parent.update({'application_plans':maps})
-                    maps = self.get_list()
-                elif self.__class__.__name__ in ['Limits']:
-                    maps = resources.Limits.insert_to_list(maps, params, spec)
-                    self.parent.update({'limits':maps})
-                    maps = self.get_list(typ='normal')
-                    return resources.Limits.get_from_list(maps, params, spec)
-                elif self.__class__.__name__ in ['PricingRules']:
-                    maps = resources.PricingRules.insert_to_list(maps, params, spec)
-                    self.parent.update({'pricingRules':maps})
-                    maps = self.get_list(typ='normal')
-                    return resources.PricingRules.get_from_list(maps, params, spec)
-                for mapi in maps:
-                    if all([params[key] == mapi[key] for key in params.keys()]):
-                        return mapi
-                return None
-
-            else:
-                result = ocp.create(spec)
-                assert result.status() == 0
-                list_objs = self.read_crd(self._entity_collection,
-                                          result.out().strip().split('/')[1])
-                created_objects = []
-                counter = 10
-                while len(list_objs) > 0 and counter > 0:
-                    list_objs2 = []
-                    for obj in list_objs:
-                        obj.refresh()
-                        status = obj.as_dict().get('status', None)
-                        if status:
-                            new_id = status.get(self.ID_NAME, 0)
-                            # exception because of https://issues.redhat.com/browse/THREESCALE-8273
-                            if self.__class__.__name__ in ['Tenants']:
-                                if status.get('adminId', None) and status.get('tenantId', None):
-                                    created_objects.append(obj)
-                            elif self.__class__.__name__ in ['Promotes', 'Applications']:
-                                state = {'Ready': status['conditions'][0]['status'] == 'True'}
-                                if state['Ready']:
-                                    created_objects.append(obj)
-                                else:
-                                    list_objs2.append(obj)
-                            else:
-                                state = {'Failed': True, 'Invalid': True, 'Synced': False, 'Ready': False}
-                                for sta in status['conditions']:
-                                    state[sta['type']] = (sta['status'] == 'True')
-                                if state['Failed'] or state['Invalid'] or\
-                                    (not (state['Synced'] or state['Ready'])) or\
-                                    (new_id == 0):
-                                    list_objs2.append(obj)
-                                else:
-                                    created_objects.append(obj)
+            result = ocp.create(spec)
+            assert result.status() == 0
+            list_objs = self.read_crd(self._entity_collection,
+                                      result.out().strip().split('/')[1])
+            created_objects = []
+            counters = [89, 55, 34, 21, 13, 8, 5, 3, 2, 1, 1, 1]
+            while len(list_objs) > 0 and len(counters) > 0:
+                list_objs2 = []
+                for obj in list_objs:
+                    obj.refresh()
+                    status = obj.as_dict().get('status', None)
+                    if status:
+                        new_id = status.get(self.ID_NAME, 0)
+                        if self._is_ready(status, new_id):
+                            created_objects.append(obj)
                         else:
                             list_objs2.append(obj)
-                    list_objs = list_objs2
-                    if not list_objs:
-                        time.sleep(20)
-                    counter -= 1
+                    else:
+                        list_objs2.append(obj)
+                list_objs = list_objs2
+                if not list_objs:
+                    time.sleep(counters.pop())
 
-                instance = (self._create_instance(response=created_objects)[:1] or [None])[0]
-                return instance
+            instance = (self._create_instance(response=created_objects)[:1] or [None])[0]
+            return instance
 
         return threescale_api.defaults.DefaultClient.create(self, params, **kwargs)
 
+    def _set_provider_ref_new_crd(self, spec):
+        """ set provider reference to new crd """
+        if self.threescale_client.ocp_provider_ref is None:
+            spec['spec'].pop('providerAccountRef')
+        else:
+            spec['spec']['providerAccountRef']['name'] = self.threescale_client.ocp_provider_ref
+            spec['spec']['providerAccountRef']['namespace'] = self.threescale_client.ocp_namespace
+        return spec
+
+    def _is_ready(self, status, new_id):
+        """ Is object ready? """
+        state = {'Failed': True, 'Invalid': True, 'Synced': False, 'Ready': False}
+        for sta in status['conditions']:
+            state[sta['type']] = (sta['status'] == 'True')
+
+        return not state['Failed'] and\
+            not state['Invalid'] and\
+            (state['Synced'] or state['Ready']) and\
+            (new_id != 0)
 
     def _create_instance(self, response, klass=None, collection: bool = False):
         klass = klass or self._instance_klass
@@ -298,130 +197,37 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         LOG.info("[INSTANCE] CRD Created instance: %s", str(instance))
         return instance
 
-    def _extract_resource_crd(self, response, collection, klass) -> Union[List, Dict]:
-        extract_params = dict(response=response, entity=self._entity_name)
+    def _extract_resource_crd(self, response, collection, klass):
+        extract_params = {'response': response, 'entity': self._entity_name}
         if collection:
             extract_params['collection'] = self._entity_collection
         extracted = None
-        #if collection and collection in extracted:
-        #    extracted = extracted.get(collection)
         if isinstance(response, list):
-            if self.is_crd_implemented() and self.NESTED:
-                parent_id = int(self.topmost_parent().entity_id)
-                service_with_maps = {}
-                for prod in response:
-                    prod_dict = prod.as_dict()
-                    if prod_dict is None:
-                        prod_dict = {}
-                    idp = int(prod_dict.get('status', {}).get(self.topmost_parent().client.ID_NAME, 0))
-                    if  idp == parent_id:
-                        service_with_maps = prod
-                        break
-                spec = {}
-                if service_with_maps != {}:
-                    spec = (DictQuery(service_with_maps.as_dict()).get(klass.GET_PATH or self.get_path())) or []
-                if isinstance(spec, list):
-                    return [{'spec': obj, 'crd': service_with_maps} for obj in spec]
-                elif 'apicastHosted' not in spec.keys(): # exception for Proxy
-                    ret = []
-                    for key, obj in spec.items():
-                        obj[self.ID_NAME] = key
-
-                        ret.append({'spec': obj, 'crd': service_with_maps})
-                    return ret
-                else:
-                    return [{'spec': spec, 'crd': service_with_maps}]
-            elif self.is_crd_implemented():
+            if self.is_crd_implemented():
                 return [{'spec': obj.as_dict()['spec'], 'crd': obj} for obj in response]
-        #if entity in extracted.keys():
-        #    return extracted.get(entity)
+
         return extracted
 
     def _instantiate_crd(self, extracted, klass):
         if isinstance(extracted, list):
             instance = [self.__make_instance_crd(item, klass) for item in extracted]
-            if self.__class__.__name__ == 'Policies':
-                return {'policies_config': instance}
-            if self.__class__.__name__ == 'Proxies':
-                return instance[0]
-            if self.__class__.__name__ in ['Limits', 'PricingRules']:
-                # it is needed to distinguish between getting metric's limits(normal) or all limits(full)
-                if (resources.Limits.LIST_TYPE == 'normal' and self.__class__.__name__ == 'Limits') or (resources.PricingRules.LIST_TYPE == 'normal' and self.__class__.__name__ == 'PricingRules'):
-                    if self.metric.__class__.__name__ == 'BackendMetric':
-                        return [obj for obj in instance \
-                                if self.metric['name'] == obj['metric_name'] and \
-                                self.metric.parent['system_name'] == obj['backend_name']]
-                    else:
-                        return [obj for obj in instance \
-                                if self.metric['name'] == obj['metric_name'] and \
-                                'backend_name' not in obj.entity]
-                else:
-                    return [obj for obj in instance]
-            return instance
+            return self._create_instance_trans(instance)
         return self.__make_instance_crd(extracted, klass)
+
+    def _create_instance_trans(self, instance):
+        return instance
 
     def __make_instance_crd(self, extracted: dict, klass):
         instance = klass(client=self, spec=extracted['spec'], crd=extracted['crd']) if klass else extracted
         return instance
 
-
     def delete(self, entity_id: int = None, resource: 'DefaultResource' = None, **kwargs) -> bool:
         """ Method deletes resource. """
         LOG.info(self._log_message("[DELETE] Delete CRD ", entity_id=entity_id, args=kwargs))
-        if self.is_crd_implemented() and self.NESTED:
-            spec = self.translate_to_crd(resource.entity, self.trans_item)
-            mapsi = self.get_list()
-            maps = {}
-            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules', 'Limits', 'PricingRules']:
-                maps = []
-            for mapi in mapsi:
-                if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if map_ret != spec:
-                        maps.append(map_ret)
-                elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if map_ret != spec:
-                        name = mapi[self.ID_NAME]
-                        maps[name] = map_ret
-                elif self.__class__.__name__ in ['BackendUsages']:
-                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if map_ret != spec:
-                        backend_id = mapi['backend_id']
-                        back = self.parent.parent.backends.read(int(backend_id))
-                        maps[back[self.ID_NAME]] = map_ret
-                elif self.__class__.__name__ in ['ApplicationPlans']:
-                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if map_ret != spec:
-                        name = mapi[self.ID_NAME]
-                        maps[name] = map_ret
-                elif self.__class__.__name__ in ['Limits', 'PricingRules']:
-                    spec = self.translate_to_crd(resource.entity)
-                    map_ret = self.translate_to_crd(mapi.entity)
-                    if map_ret != spec:
-                        maps.append(map_ret)
-
-            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                self.parent.update({'mapping_rules':maps})
-            elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                self.parent.update({'metrics':maps})
-            elif self.__class__.__name__ in ['BackendUsages']:
-                self.parent.update({'backend_usages':maps})
-            elif self.__class__.__name__ in ['ApplicationPlans']:
-                self.parent.update({'application_plans':maps})
-            elif self.__class__.__name__ in ['Limits']:
-                par = self.parent.update({'limits': maps})
-            elif self.__class__.__name__ in ['PricingRules']:
-                par = self.parent.update({'pricingRules': maps})
-            return True
-        elif self.is_crd_implemented():
+        if self.is_crd_implemented():
             resource.crd.delete()
-            if self.__class__.__name__ not in ['Services', 'Backends', 'Tenants', 'Accounts', 'AccountUsers', 'Promotes', 'OpenApis', 'Applications']:
-                return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
-            else:
-                return True
-        else:
-            return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
+            return True
+        return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
 
     def update(self, entity_id=None, params: dict = None,
                resource: 'DefaultResource' = None,
@@ -433,153 +239,11 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             new_params = {**resource.entity}
         if params:
             new_params.update(params)
-#TODO change ids for objects which require ids
-        if self.is_crd_implemented() and self.NESTED:
-            spec = {}
-
-            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                new_params['id'] = (new_params['http_method'], new_params['pattern'])
-            elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                new_params['id'] = (new_params['name'], new_params['unit'])
-            elif self.__class__.__name__ in ['BackendUsages']:
-                new_params['id'] =\
-                    (new_params['path'], new_params['backend_id'], new_params['service_id'])
-            elif self.__class__.__name__ in ['ApplicationPlans']:
-                self.before_update(new_params, resource)
-                new_params['id'] = new_params['system_name']
-            elif self.__class__.__name__ in ['Proxies']:
-                new_params['id'] = self.parent.entity_id
-            elif self.__class__.__name__ in ['Policies']:
-                new_params = new_params['policies_config']
-                # this should be done because list of policies is already
-                # constructed list and not just one item
-                spec = []
-                for item in new_params:
-                    if hasattr(item, 'entity'):
-                        item = item.entity
-                    spec.append(self.translate_to_crd(item, self.trans_item))
-            elif self.__class__.__name__ in ['Limits', 'PricingRules']:
-                new_params['id'] = self.get('id')
-            if resource and 'id' in params:
-                resource.entity_id = params['id']
-            # see above comment
-            if self.__class__.__name__ not in ['Policies']:
-                spec = self.translate_to_crd(new_params, self.trans_item)
-
-            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules'] and \
-                'metric_id' not in params.keys():
-                spec['metricMethodRef'] = 'hits'
-
-            mapsi = self.get_list()
-            maps = {}
-            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules', 'Limits', 'PricingRules']:
-                maps = []
-
-            # TODO this for should be replaced by insert_to_list method
-            for mapi in mapsi:
-                if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if not (map_ret['httpMethod'] == spec['httpMethod'] and map_ret['pattern'] == spec['pattern']):
-                        maps.append(map_ret)
-                elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if map_ret != spec:
-                        name = mapi[self.ID_NAME]
-                        maps[name] = map_ret
-                elif self.__class__.__name__ in ['BackendUsages']:
-                    map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                    if map_ret != spec:
-                        backend_id = mapi['backend_id']
-                        back = self.parent.parent.backends.read(int(backend_id))
-                        maps[back[self.ID_NAME]] = map_ret
-                elif self.__class__.__name__ in ['ApplicationPlans']:
-                    if mapi['id'] != new_params['id']:
-                        map_ret = self.translate_to_crd(mapi.entity, self.trans_item)
-                        maps[mapi[self.ID_NAME]] = map_ret
-                elif self.__class__.__name__ in ['Limits', 'PricingRules']:
-                    map_ret = self.translate_to_crd(mapi.entity)
-                    maps.append(map_ret)
-
-            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                resources.MappingRules.insert_into_position(maps, new_params, spec)
-                par = self.parent.update({'mapping_rules':maps})
-            elif self.__class__.__name__ in ['Metrics', 'BackendMetrics']:
-                name = new_params.get(self.ID_NAME)
-                maps[name] = spec
-                par = self.parent.update({'metrics':maps})
-            elif self.__class__.__name__ in ['BackendUsages']:
-                backend_id = spec.pop('backend_id')
-                spec.pop('service_id')
-                back = self.threescale_client.backends.read(int(backend_id))
-                maps[back[self.ID_NAME]] = spec
-                par = self.parent.update({'backend_usages':maps})
-            elif self.__class__.__name__ in ['ApplicationPlans']:
-                maps[new_params['id']] = spec
-                par = self.parent.update({'application_plans':maps})
-            elif self.__class__.__name__ in ['Proxies']:
-                obj = {}
-                iter_obj = obj
-                # service.proxy.oidc.update(params={"oidc_configuration": DEFAULT_FLOWS})
-
-                for path in resource.spec_path:
-                    if path not in iter_obj:
-                        if path == resource.spec_path[-1]:
-                            iter_obj[path] = spec
-                            if resource.oidc['oidc_configuration']:
-                                auth_flow = self.translate_specific_to_crd(
-                                        resource.oidc['oidc_configuration'],
-                                        constants.KEYS_OIDC)
-                                iter_obj[path]['authenticationFlow'] = auth_flow
-                            if resource.responses or\
-                                (set(new_params.keys()).intersection(set(constants.KEYS_PROXY_RESPONSES))):
-                                resource.responses = True
-                                resps = self.translate_specific_to_crd(new_params, constants.KEYS_PROXY_RESPONSES)
-                                iter_obj[path]['gatewayResponse'] = resps
-                            if resource.security:
-                                sec = self.translate_specific_to_crd(new_params, constants.KEYS_PROXY_SECURITY)
-                                iter_obj[path]['gatewayResponse'] = sec
-
-                        else:
-                            iter_obj[path] = {}
-                    iter_obj = iter_obj[path]
-
-                par = self.parent.update({'deployment': obj})
-            elif self.__class__.__name__ in ['Policies']:
-                par = self.parent.update({'policies': spec})
-            elif self.__class__.__name__ in ['Limits']:
-                spec = self.translate_to_crd(params)
-                maps = resources.Limits.insert_to_list(maps, params, {'spec': spec})
-                par = self.parent.update({'limits': maps})
-            elif self.__class__.__name__ in ['PricingRules']:
-                spec = self.translate_to_crd(params)
-                maps = resources.PricingRules.insert_to_list(maps, params, {'spec': spec})
-                par = self.parent.update({'pricingRules': maps})
-
-            maps = self.get_list()
-            if self.__class__.__name__ in ['MappingRules', 'BackendMappingRules']:
-                return resources.MappingRules.get_from_position(maps, new_params)
-
-            if self.__class__.__name__ in ['Proxies']:
-                return par.proxy.list()
-
-            if self.__class__.__name__ in ['Policies']:
-                return maps
-
-            checked_keys = [key for key in new_params.keys() if key not in ['id']]
-            for mapi in maps:
-                if all([new_params[key] == mapi[key] for key in checked_keys]):
-                    return mapi
-            return None
-
-        elif self.is_crd_implemented():
+        # TODO change ids for objects which require ids
+        if self.is_crd_implemented():
             new_params = copy.deepcopy(new_params)
             self.before_update(new_params, resource)
-            new_spec = self.translate_to_crd(new_params, self.trans_item)
-            if self.__class__.__name__ in ['Applications']:
-                new_spec['productCR'] = {}
-                new_spec['productCR']['name'] = new_params['service_name']
-                new_spec['accountCR'] = {}
-                new_spec['accountCR']['name'] = new_params['account_name']
+            new_spec = self.translate_to_crd(new_params)
             if resource.crd is None:
                 resource = resource.read()
                 if isinstance(resource, list):
@@ -603,30 +267,155 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 raise Exception(str(result))
             return self.read(resource.entity_id)
 
+        return threescale_api.defaults.DefaultClient.update(self, entity_id=entity_id,
+                                                            params=params, **kwargs)
+
+    def trans_item(self, key, value, obj):
+        """ Transform one attribute in CRD spec. """
+        return obj[key]
+
+    def translate_to_crd(self, obj):
+        """Translate object attributes into object ready for merging into CRD."""
+        map_ret = {}
+
+        for key, value in self.KEYS.items():
+            LOG.debug("%s, %s, %s, %s", str(key), str(value), str(obj), str(type(obj)))
+            if obj.get(key, None) is not None:
+                set_value = self.trans_item(key, value, obj)
+                if set_value is not None:
+                    map_ret[value] = set_value
+
+        return map_ret
+
+
+class DefaultClientNestedCRD(DefaultClientCRD):
+    """Default CRD client for nested objects."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def get_id_from_crd(self):
+        """Returns object id extracted from CRD."""
+        return None
+
+    def _extract_resource_crd(self, response, collection, klass) -> Union[List, Dict]:
+        extract_params = {'response': response, 'entity': self._entity_name}
+        if collection:
+            extract_params['collection'] = self._entity_collection
+        extracted = None
+        if isinstance(response, list):
+            if self.is_crd_implemented():
+                parent_id = int(self.topmost_parent().entity_id)
+                service_with_maps = {}
+                for prod in response:
+                    prod_dict = prod.as_dict()
+                    if prod_dict is None:
+                        prod_dict = {}
+                    idp = int(prod_dict.get('status', {}).get(self.topmost_parent().client.ID_NAME, 0))
+                    if  idp == parent_id:
+                        service_with_maps = prod
+                        break
+                spec = {}
+                if service_with_maps != {}:
+                    spec = (DictQuery(service_with_maps.as_dict()).get(klass.GET_PATH or self.get_path())) or []
+                if isinstance(spec, list):
+                    return [{'spec': obj, 'crd': service_with_maps} for obj in spec]
+                elif 'apicastHosted' not in spec.keys():  # exception for Proxy
+                    ret = []
+                    for key, obj in spec.items():
+                        obj[self.ID_NAME] = key
+
+                        ret.append({'spec': obj, 'crd': service_with_maps})
+                    return ret
+                else:
+                    return [{'spec': spec, 'crd': service_with_maps}]
+
+        return extracted
+
+    def create(self, params: dict = None, **kwargs) -> 'DefaultResource':
+        LOG.info(self._log_message("[CREATE] Create CRD Nested ", body=params, args=kwargs))
+        if self.is_crd_implemented():
+            spec = copy.deepcopy(self.SPEC)
+            name = params.get('name') or params.get('username')  # Developer User exception
+            if name is not None:
+                name = self.normalize(name)
+                if params.get('name'):
+                    params['name'] = name
+                else:
+                    params['username'] = name
+            else:
+                name = self.normalize(''.join(random.choice(string.ascii_letters) for _ in range(16)))
+
+            self.before_create(params, spec)
+
+            spec['spec'].update(self.translate_to_crd(params))
+            DefaultClientCRD.cleanup_spec(spec, self.KEYS, params)
+
+            return self.in_create(self.get_list_from_spec(), params, spec)
+
+        return threescale_api.defaults.DefaultClient.create(self, params, **kwargs)
+
+    def delete(self, entity_id: int = None, resource: 'DefaultResource' = None, **kwargs) -> bool:
+        """ Method deletes resource. """
+        LOG.info(self._log_message("[DELETE] Delete CRD Nested ", entity_id=entity_id, args=kwargs))
+        if self.is_crd_implemented():
+            spec = self.translate_to_crd(resource.entity)
+            maps = self.remove_from_list(self.get_list(), spec)
+            self.update_list(maps)
+            return True
+        return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
+
+    def update(self, entity_id=None, params: dict = None,
+               resource: 'DefaultResource' = None,
+               **kwargs) -> 'DefaultResource':
+        LOG.info(self._log_message("[UPDATE] Update CRD", body=params,
+                                   entity_id=entity_id, args=kwargs))
+        new_params = {}
+        if resource:
+            new_params = {**resource.entity}
+        if params:
+            new_params.update(params)
+        # TODO change ids for objects which require ids
+        if self.is_crd_implemented():
+            # ApplicationPlans
+            # BackendMappingRules
+            # BackendMetrics
+            # BackendUsages
+            # Limits
+            # MappingRules
+            # Metrics
+            # Policies
+            # PricingRules
+            # Proxies
+
+            spec = self.before_update(new_params, resource)
+
+            maps = self.remove_from_list(self.get_list(), spec)
+
+            par = self.parent
+
+            self.before_update_list(maps, new_params, spec, resource)
+
+            par = self.update_list(maps)
+            maps = self.get_list()
+            return self.after_update_list(maps, par, new_params)
 
         return threescale_api.defaults.DefaultClient.update(self, entity_id=entity_id,
                                                             params=params, **kwargs)
 
-    def translate_to_crd(self, obj, trans_item=None):
-        """Translate object attributes into object ready for merging into CRD."""
-        map_ret = {}
-        if not trans_item:
-            trans_item = lambda key, value, obj: obj[key]
-        for key, value in self.KEYS.items():
-            LOG.debug("%s, %s, %s, %s", str(key), str(value), str(obj), str(type(obj)))
-            if obj.get(key, None) is not None:
-                set_value = trans_item(key, value, obj)
-                if set_value is not None:
-                    map_ret[value] = set_value
-
-
-        return map_ret
-
+    def after_update_list(self, maps, par, new_params):
+        """ Returns updated list. """
+        checked_keys = [key for key in new_params.keys() if key not in ['id']]
+        for mapi in maps:
+            if all([new_params[key] == mapi[key] for key in checked_keys]):
+                return mapi
+        return None
 
 
 class DefaultResourceCRD(threescale_api.defaults.DefaultResource):
     """Default CRD resource."""
     GET_PATH = None
+
     def __init__(self, *args, crd=None, **kwargs):
         super().__init__(**kwargs)
         self._crd = crd
@@ -650,8 +439,6 @@ class DefaultResourceCRD(threescale_api.defaults.DefaultResource):
 
     def get_id_from_crd(self):
         """Returns object id extracted from CRD."""
-        if self.client.NESTED:
-            return None
         counter = 5
         while counter > 0:
             self.crd = self.crd.refresh()

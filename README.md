@@ -52,7 +52,7 @@ Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 -vv
   - methods
   - ProductDeploymentSpec
   - AuthenticationSpec
-
+- implement delete of policies + add unit tests
 - create jenkins job for running unit tests
 - add proper error messages in case of for example missing required arguments, see test_should_fields_be_required 
 - implement optimitazation on the oc level:

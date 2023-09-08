@@ -48,6 +48,9 @@ SPEC_SERVICE = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'name': None,
@@ -88,6 +91,9 @@ SPEC_BACKEND = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'name': None,
@@ -159,6 +165,9 @@ SPEC_ACTIVE_DOC = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'name': None,
@@ -182,6 +191,9 @@ SPEC_POLICY_REG = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'name': None,
@@ -207,6 +219,9 @@ SPEC_ACCOUNT = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'providerAccountRef': {
@@ -224,6 +239,9 @@ SPEC_ACCOUNT_USER = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'providerAccountRef': {
@@ -258,6 +276,9 @@ SPEC_OPEN_API = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'providerAccountRef': {
@@ -272,6 +293,9 @@ SPEC_TENANT = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'organizationName': None,
@@ -297,6 +321,9 @@ SPEC_PROMOTE = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'providerAccountRef': {
@@ -312,6 +339,9 @@ SPEC_APPLICATION = {
     'metadata': {
         'name': None,
         'namespace': None,
+        'annotations': {
+            'insecure_skip_verify': 'true'
+        },
     },
     'spec': {
         'name': None,
@@ -546,6 +576,8 @@ KEYS_APPLICATION = {
     'name': 'name',
     'plan_name': 'applicationPlanName',
     'suspend': 'suspend',
+    'service_name': 'productCR',
+    'account_name': 'accountCR',
 }
 
 SPEC_SECRET = {
