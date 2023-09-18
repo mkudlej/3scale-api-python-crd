@@ -61,7 +61,6 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         Returns(dict): Resource dict from the 3scale
         """
         LOG.info(self._log_message("[FETCH] CRD Fetch ", entity_id=entity_id, args=kwargs))
-
         if self.is_crd_implemented():
             list_crds = self.read_crd(self._entity_collection)
             instance_list = self._create_instance(response=list_crds)
@@ -203,8 +202,9 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             extract_params['collection'] = self._entity_collection
         extracted = None
         if isinstance(response, list):
-            if self.is_crd_implemented():
+            if response:
                 return [{'spec': obj.as_dict()['spec'], 'crd': obj} for obj in response]
+            return None
 
         return extracted
 
@@ -212,7 +212,9 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         if isinstance(extracted, list):
             instance = [self.__make_instance_crd(item, klass) for item in extracted]
             return self._create_instance_trans(instance)
-        return self.__make_instance_crd(extracted, klass)
+        if extracted:
+            return self.__make_instance_crd(extracted, klass)
+        return None
 
     def _create_instance_trans(self, instance):
         return instance
@@ -387,14 +389,13 @@ class DefaultClientNestedCRD(DefaultClientCRD):
             # Policies
             # PricingRules
             # Proxies
-
             spec = self.before_update(new_params, resource)
 
             maps = self.remove_from_list(self.get_list(), spec)
 
             par = self.parent
 
-            self.before_update_list(maps, new_params, spec, resource)
+            maps = self.before_update_list(maps, new_params, spec, resource)
 
             par = self.update_list(maps)
             maps = self.get_list()

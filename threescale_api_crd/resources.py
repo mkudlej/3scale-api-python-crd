@@ -70,9 +70,11 @@ class Proxies(DefaultClientNestedCRD, threescale_api.resources.Proxies):
 
     def before_update(self, new_params, resource):
         """Called before update."""
-        new_params['id'] = resource.parent.entity_id
-        if resource and 'id' in new_params:
-            resource.entity_id = new_params['id']
+        if not resource:
+            resource = self.list()
+        #new_params['id'] = self.parent['id']
+        #if resource and 'id' in new_params:
+        #    resource.entity_id = new_params['id']
         return self.translate_to_crd(new_params)
 
     def get_list(self, typ=None):
@@ -88,6 +90,8 @@ class Proxies(DefaultClientNestedCRD, threescale_api.resources.Proxies):
         obj = {}
         iter_obj = obj
         # service.proxy.oidc.update(params={"oidc_configuration": DEFAULT_FLOWS})
+        if not resource:
+            resource = self.list()
 
         for path in resource.spec_path:
             if path not in iter_obj:
@@ -111,7 +115,7 @@ class Proxies(DefaultClientNestedCRD, threescale_api.resources.Proxies):
                     iter_obj[path] = {}
             iter_obj = iter_obj[path]
 
-        maps = obj
+        return obj
 
     def update_list(self, maps):
         """ Returns updated list. """
@@ -130,6 +134,10 @@ class Proxies(DefaultClientNestedCRD, threescale_api.resources.Proxies):
 
     def list(self, **kwargs):
         return DefaultClientCRD.list(self, **kwargs)
+
+    def update(self, *args, **kwargs):
+        kwargs['resource'] = self.list()
+        return DefaultClientNestedCRD.update(self, *args, **kwargs)
 
     def delete(self):
         """This functions is not implemented for Proxies."""
@@ -237,7 +245,7 @@ class MappingRules(DefaultClientNestedCRD, threescale_api.resources.MappingRules
 
     def get_list_from_spec(self):
         """ Returns list from spec """
-        return self.parent.crd.as_dict()['spec'].get('mapping_rules', [])
+        return self.parent.crd.as_dict()['spec'].get('mappingRules', [])
 
     def before_update(self, new_params, resource):
         """Called before update."""
@@ -252,6 +260,7 @@ class MappingRules(DefaultClientNestedCRD, threescale_api.resources.MappingRules
     def before_update_list(self, maps, new_params, spec, resource):
         """ Modify some details in data before updating the list """
         MappingRules.insert_into_position(maps, new_params, spec)
+        return maps
 
     def update_list(self, maps):
         """ Returns updated list. """
@@ -454,6 +463,7 @@ class Metrics(DefaultClientNestedCRD, threescale_api.resources.Metrics):
         """ Modify some details in data before updating the list """
         name = new_params.get(Metrics.ID_NAME)
         maps[name] = spec
+        return maps
 
     def update_list(self, maps):
         """ Returns updated list. """
@@ -539,7 +549,7 @@ class BackendUsages(DefaultClientNestedCRD, threescale_api.resources.BackendUsag
 
     def get_list_from_spec(self):
         """ Returns list from spec """
-        return self.parent.crd.as_dict()['spec'].get('backend_usages', {})
+        return self.parent.crd.as_dict()['spec'].get('backendUsages', {})
 
     def before_update_list(self, maps, new_params, spec, resource):
         """ Modify some details in data before updating the list """
@@ -547,6 +557,7 @@ class BackendUsages(DefaultClientNestedCRD, threescale_api.resources.BackendUsag
         spec.pop('service_id')
         back = self.threescale_client.backends.read(int(backend_id))
         maps[back[BackendUsages.ID_NAME]] = spec
+        return maps
 
     def update_list(self, maps):
         """ Returns updated list. """
@@ -617,7 +628,7 @@ class Policies(DefaultClientNestedCRD, threescale_api.resources.Policies):
 
     def before_update_list(self, maps, new_params, spec, resource):
         """ Modify some details in data before updating the list """
-        maps = spec
+        return spec
 
     def update_list(self, maps):
         """ Returns updated list. """
@@ -700,11 +711,12 @@ class ApplicationPlans(DefaultClientNestedCRD, threescale_api.resources.Applicat
 
     def get_list_from_spec(self):
         """ Returns list from spec """
-        return self.parent.crd.as_dict()['spec'].get('application_plans', {})
+        return self.parent.crd.as_dict()['spec'].get('applicationPlans', {})
 
     def before_update_list(self, maps, new_params, spec, resource):
         """ Modify some details in data before updating the list """
         maps[new_params['id']] = spec
+        return maps
 
     def update_list(self, maps):
         """ Returns updated list. """
@@ -994,7 +1006,7 @@ class Limits(DefaultClientNestedCRD, threescale_api.resources.Limits):
     def before_update_list(self, maps, new_params, spec, resource):
         """ Modify some details in data before updating the list """
         spec = self.translate_to_crd(new_params)
-        maps = self.insert_to_list(maps, new_params, {'spec': spec})
+        return self.insert_to_list(maps, new_params, {'spec': spec})
 
     def update_list(self, maps):
         """ Returns updated list. """
@@ -1004,9 +1016,8 @@ class Limits(DefaultClientNestedCRD, threescale_api.resources.Limits):
         """ Returns list without item specified by 'spec'. """
         maps = []
         for mapi in mapsi:
-            map_ret = self.translate_to_crd(mapi.entity)
-            if map_ret != spec:
-                maps.append(map_ret)
+            if mapi['id'] != (spec['period'], spec['metricMethodRef']['systemName']):
+                maps.append(self.translate_to_crd(mapi.entity))
         return maps
 
     def topmost_parent(self):
@@ -1157,7 +1168,7 @@ class PricingRules(DefaultClientNestedCRD, threescale_api.resources.PricingRules
     def before_update_list(self, maps, new_params, spec, resource):
         """ Modify some details in data before updating the list """
         spec = self.translate_to_crd(new_params)
-        maps = PricingRules.insert_to_list(maps, new_params, {'spec': spec})
+        return PricingRules.insert_to_list(maps, new_params, {'spec': spec})
 
     def update_list(self, maps):
         """ Returns updated list. """
@@ -1362,6 +1373,7 @@ class Methods(DefaultClientNestedCRD, threescale_api.resources.Methods):
         """ Modify some details in data before updating the list """
         name = new_params.get(Methods.ID_NAME)
         maps[name] = spec
+        return maps
 
     def update_list(self, maps):
         """ Returns updated list. """
@@ -1472,9 +1484,10 @@ class Proxy(DefaultResourceCRD, threescale_api.resources.Proxy):
         if 'spec' in kwargs:
             spec = kwargs.pop('spec')
             crd = kwargs.pop('crd')
-            # client = kwargs.get('client')
             self.spec_path = []
             entity = {}
+            # there is no attribute which can simulate Proxy id, service id should be used
+            entity['id'] = crd.as_dict().get('status').get(Services.ID_NAME)
             # apicastHosted or ApicastSelfManaged
             if len(spec.values()):
                 apicast_key = list(spec.keys())[0]
@@ -1528,8 +1541,7 @@ class Proxy(DefaultResourceCRD, threescale_api.resources.Proxy):
             if ('endpoint' not in entity) or ('sandbox_endpoint' not in entity):
                 self.client.disable_crd_implemented()
                 self.parent.client.disable_crd_implemented()
-                tmp_proxy = threescale_api.resources.Services.read(self.parent.client,
-                                                                   self.parent.entity_id).proxy.fetch()
+                tmp_proxy = self.parent.proxy.fetch()
                 for name in ['endpoint', 'sandbox_endpoint']:
                     self.entity[name] = tmp_proxy[name]
                 self.client.enable_crd_implemented()
@@ -1818,13 +1830,10 @@ class Backend(DefaultResourceCRD, threescale_api.resources.Backend):
     def metrics(self) -> 'BackendMetrics':
         return BackendMetrics(parent=self, instance_klass=BackendMetric)
 
-    @property
-    def usages(self) -> 'BackendUsages':
-        for service in self.client.threescale_client.services.list():
-            backend_usages = service.backend_usages.list()
-            if len(backend_usages) > 0 and int(backend_usages[0]['backend_id']) == int(self['id']):
-                return BackendUsages(parent=service, instance_klass=BackendUsage)
-        return None
+    def usages(self) -> list['BackendUsages']:
+        services = self.client.threescale_client.services.list() or []
+        return [usage for service in services
+                for usage in service.backend_usages.select_by(backend_id=self['id'])]
 
 
 class BackendMappingRule(MappingRule):

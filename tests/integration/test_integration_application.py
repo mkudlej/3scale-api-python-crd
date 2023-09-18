@@ -9,6 +9,7 @@ def test_application_list_global(api, application):
     applications = api.applications.list()
     assert len(applications) >= 1
 
+
 def test_application_list(account, application):
     applications = account.applications.list()
     assert len(applications) >= 1
@@ -33,26 +34,26 @@ def test_application_can_be_read_by_name(api, application_params, application):
 
 
 @pytest.fixture(scope='module')
+def application_plan_params2():
+    suffix = secrets.token_urlsafe(8)
+    return dict(name=f"test-{suffix}", setup_fee="1.00", state_event='publish', cost_per_month="3.00")
+
+
+@pytest.fixture(scope='module')
+def application_plan2(service, application_plan_params2):
+    resource = service.app_plans.create(params=application_plan_params2)
+    yield resource
+    resource.delete()
+
+
+@pytest.fixture(scope='module')
 def update_application_params(application_plan2):
     suffix = secrets.token_urlsafe(8)
     name = f"updated-{suffix}"
     return dict(name=name, description=name, plan_id=application_plan2['id'])
 
 
-@pytest.fixture(scope='module')
-def application_plan_params2(service):
-    suffix = secrets.token_urlsafe(8)
-    return dict(name=f"test-{suffix}", setup_fee="1.00", state_event='publish', cost_per_month="3.00")
-
-
-@pytest.fixture(scope='module')
-def application_plan2(api, service, application_plan_params2):
-    resource = service.app_plans.create(params=application_plan_params2)
-    yield resource
-    resource.delete()
-
-
-def test_application_update(application, update_application_params):
+def test_application_update(update_application_params, application):
     updated_application = application.update(params=update_application_params)
     asserts.assert_resource(updated_application)
     asserts.assert_resource_params(updated_application, update_application_params)
