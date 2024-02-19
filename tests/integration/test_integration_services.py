@@ -98,7 +98,6 @@ def test_service_list_configs(service, proxy, backend_usage):
 
 
 def test_service_proxy_configs_version(service, proxy, backend_usage):
-    service.proxy.list().deploy()
     config = service.proxy.list().configs.version(version=1)
     assert config
     assert config['environment'] == "sandbox"
@@ -107,7 +106,6 @@ def test_service_proxy_configs_version(service, proxy, backend_usage):
 
 
 def test_service_proxy_configs_latest(service, proxy, backend_usage):
-    service.proxy.list().deploy()
     config = service.proxy.list().configs.latest()
     assert config
     assert config['environment'] == "sandbox"

@@ -2,7 +2,7 @@
 Module with ThreeScaleClient for CRD.
 """
 
-import openshift as ocp
+import openshift_client as ocp
 import threescale_api
 from threescale_api_crd import resources
 

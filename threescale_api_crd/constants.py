@@ -288,6 +288,8 @@ SPEC_OPEN_API = {
     }
 }
 
+
+
 SPEC_TENANT = {
     'apiVersion': 'capabilities.3scale.net/v1alpha1',
     'kind': 'Tenant',
@@ -536,7 +538,20 @@ KEYS_OPEN_API = {
     'privateBaseURL': 'privateBaseURL',
     'prefixMatching': 'prefixMatching',
     'privateAPIHostHeader': 'privateAPIHostHeader',
-    'privateAPISecretToken': 'privateAPISecretToken'
+    'privateAPISecretToken': 'privateAPISecretToken',
+    'oidc': 'oidc'
+}
+
+KEYS_OPEN_API_OIDC = {
+    'issuerEndpoint': 'issuerEndpoint',
+    'issuerEndpointRef': 'issuerEndpointRef',
+    'issuerType': 'issuerType',
+    'authenticationFlow': 'authenticationFlow',
+    'jwtClaimWithClientID': 'jwtClaimWithClientID',
+    'jwtClaimWithClientIDType': 'jwtClaimWithClientIDType',
+    'credentials': 'credentials',
+    'security': 'security',
+    'gatewayResponse': 'gatewayResponse',
 }
 
 KEYS_TENANT = {

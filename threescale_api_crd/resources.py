@@ -10,7 +10,8 @@ import secrets
 import random
 import yaml
 import requests
-import openshift as ocp
+import openshift_client as ocp
+import time
 
 import threescale_api
 import threescale_api.resources
@@ -119,6 +120,7 @@ class Proxies(DefaultClientNestedCRD, threescale_api.resources.Proxies):
 
     def update_list(self, maps):
         """ Returns updated list. """
+        self.parent.read()
         return self.parent.update({'deployment': maps})
 
     def after_update_list(self, maps, par, new_params):
@@ -168,7 +170,7 @@ class Proxies(DefaultClientNestedCRD, threescale_api.resources.Proxies):
     def _create_instance_trans(self, instance):
         return instance[0]
 
-    def remove_from_list(self, proxies_list, spec):
+    def remove_from_list(self, spec):
         """Return empty list because this function is not valid for Proxies.:"""
         return []
 
@@ -217,6 +219,7 @@ class MappingRules(DefaultClientNestedCRD, threescale_api.resources.MappingRules
 
     def before_create(self, params, spec):
         """Called before create."""
+        params.pop('name', None)
         if 'last' in params.keys() and isinstance(params['last'], str):
             params.update({'last': params['last'] == "true"})
 
@@ -234,7 +237,9 @@ class MappingRules(DefaultClientNestedCRD, threescale_api.resources.MappingRules
         else:
             # metric id is tuple
             spec['spec']['metricMethodRef'] = params['metric_id'][0]
+        params.pop('name', None)
         MappingRules.insert_into_position(maps, params, spec)
+        self.parent.read()
         self.parent.update({'mapping_rules': maps})
         maps = self.list()
         return MappingRules.get_from_position(maps, params)
@@ -249,6 +254,7 @@ class MappingRules(DefaultClientNestedCRD, threescale_api.resources.MappingRules
 
     def before_update(self, new_params, resource):
         """Called before update."""
+        new_params.pop('name', None)
         new_params['id'] = (new_params['http_method'], new_params['pattern'])
         if resource and 'id' in new_params:
             resource.entity_id = new_params['id']
@@ -264,16 +270,17 @@ class MappingRules(DefaultClientNestedCRD, threescale_api.resources.MappingRules
 
     def update_list(self, maps):
         """ Returns updated list. """
+        self.parent.read()
         return self.parent.update({'mapping_rules': maps})
 
     def after_update_list(self, maps, par, new_params):
         """ Returns updated list. """
         return MappingRules.get_from_position(maps, new_params)
 
-    def remove_from_list(self, mapsi, spec):
+    def remove_from_list(self, spec):
         """ Returns list without item specified by 'spec'. """
         maps = []
-        for mapi in mapsi:
+        for mapi in self.get_list():
             map_ret = self.translate_to_crd(mapi.entity)
             if not (map_ret['httpMethod'] == spec['httpMethod'] and map_ret['pattern'] == spec['pattern']):
                 maps.append(map_ret)
@@ -449,6 +456,7 @@ class Metrics(DefaultClientNestedCRD, threescale_api.resources.Metrics):
         if 'name' in spec['spec']:
             spec['spec'].pop('name')
         maps[name] = spec['spec']
+        self.parent.read()
         self.parent.update({'metrics': maps})
         for mapi in self.get_list():
             if all([params[key] == mapi[key] for key in params.keys()]):
@@ -467,12 +475,13 @@ class Metrics(DefaultClientNestedCRD, threescale_api.resources.Metrics):
 
     def update_list(self, maps):
         """ Returns updated list. """
+        self.parent.read()
         return self.parent.update({'metrics': maps})
 
-    def remove_from_list(self, mapsi, spec):
+    def remove_from_list(self, spec):
         """ Returns list without item specified by 'spec'. """
         maps = {}
-        for mapi in mapsi:
+        for mapi in self.get_list():
             map_ret = self.translate_to_crd(mapi.entity)
             if map_ret != spec:
                 name = mapi[self.ID_NAME]
@@ -541,7 +550,9 @@ class BackendUsages(DefaultClientNestedCRD, threescale_api.resources.BackendUsag
         back = self.parent.parent.backends.read(int(backend_id))
 
         maps[back[self.ID_NAME]] = spec['spec']
+        self.parent.read()
         self.parent.update({'backend_usages': maps})
+        params.pop('name', None)
         for mapi in self.get_list():
             if all([params[key] == mapi[key] for key in params.keys()]):
                 return mapi
@@ -561,12 +572,14 @@ class BackendUsages(DefaultClientNestedCRD, threescale_api.resources.BackendUsag
 
     def update_list(self, maps):
         """ Returns updated list. """
+        self.parent.read()
         return self.parent.update({'backend_usages': maps})
 
-    def remove_from_list(self, mapsi, spec):
+    def remove_from_list(self, spec):
         """ Returns list without item specified by 'spec'. """
         maps = {}
-        for mapi in mapsi:
+        mapis = self.get_list()
+        for mapi in mapis:
             map_ret = self.translate_to_crd(mapi.entity)
             if map_ret != spec:
                 backend_id = mapi['backend_id']
@@ -632,13 +645,14 @@ class Policies(DefaultClientNestedCRD, threescale_api.resources.Policies):
 
     def update_list(self, maps):
         """ Returns updated list. """
+        self.parent.read()
         return self.parent.update({'policies': maps})
 
     def after_update_list(self, maps, par, new_params):
         """ Returns updated list. """
         return maps
 
-    def remove_from_list(self, mapsi, spec):
+    def remove_from_list(self, spec):
         """ Returns list without item specified by 'spec'. """
         return []
 
@@ -703,6 +717,7 @@ class ApplicationPlans(DefaultClientNestedCRD, threescale_api.resources.Applicat
         else:
             params[self.ID_NAME] = DefaultClientCRD.normalize(spec['spec'].pop('name'))
         maps[params[self.ID_NAME]] = spec['spec']
+        self.parent.read()
         self.parent.update({'application_plans': maps})
         for mapi in self.get_list():
             if all([params[key] == mapi[key] for key in params.keys()]):
@@ -720,14 +735,18 @@ class ApplicationPlans(DefaultClientNestedCRD, threescale_api.resources.Applicat
 
     def update_list(self, maps):
         """ Returns updated list. """
+        self.parent.read()
         return self.parent.update({'application_plans': maps})
 
-    def remove_from_list(self, mapsi, spec):
+    def remove_from_list(self, spec):
         """ Returns list without item specified by 'spec'. """
         maps = {}
-        for mapi in mapsi:
+        nspec = spec.copy()
+        nspec.pop('limits', None)
+        for mapi in self.get_list():
             map_ret = self.translate_to_crd(mapi.entity)
-            if map_ret != spec:
+            map_ret.pop('limits', None)
+            if map_ret != nspec:
                 name = mapi[self.ID_NAME]
                 maps[name] = map_ret
         return maps
@@ -802,10 +821,12 @@ class AccountUsers(DefaultClientCRD, threescale_api.resources.AccountUsers):
     def before_update(self, new_params, resource):
         """Called before update."""
 
-    def _is_ready(self, status, new_id):
+    def _is_ready(self, obj):
         """ Is object ready? """
+        if not ('status' in obj.model and 'conditions' in obj.model.status):
+            return False
         state = {'Failed': True, 'Invalid': True, 'Orphan': False, 'Ready': False}
-        for sta in status['conditions']:
+        for sta in obj.as_dict()['status']['conditions']:
             state[sta['type']] = (sta['status'] == 'True')
 
         return not state['Failed'] and\
@@ -880,9 +901,23 @@ class Promotes(DefaultClientCRD, threescale_api.defaults.DefaultClient):
         """Called before update."""
         pass
 
-    def _is_ready(self, status, new_id):
+    def _is_ready(self, obj):
         """ Is object ready? """
-        return status['conditions'][0]['status'] == 'True'
+        if not ('status' in obj.model and 'conditions' in obj.model.status):
+            return False
+        state = {'Failed': True, 'Ready': False}
+        conds = obj.as_dict()['status']['conditions']
+        for sta in conds:
+            state[sta['type']] = (sta['status'] == 'True')
+
+        if not state['Failed'] and state['Ready']:
+            return True
+        else:
+            # extract message for 'Failed'
+            msg = [st['message'] for st in conds if st['type'] == 'Failed'] 
+            if msg and msg[0] == '[]: Invalid value: "": cannot promote to staging as no product changes detected. Delete this proxyConfigPromote CR, then introduce changes to configuration, and then create a new proxyConfigPromote CR':
+                return True
+            return False
 
 
 class Tenants(DefaultClientCRD, threescale_api.resources.Tenants):
@@ -948,10 +983,10 @@ class Tenants(DefaultClientCRD, threescale_api.resources.Tenants):
     def read(self, entity_id, **kwargs):
         return DefaultClientCRD.fetch(self, entity_id, **kwargs)
 
-    def _is_ready(self, status, new_id):
+    def _is_ready(self, obj):
         """ Is object ready? """
         # exception because of https://issues.redhat.com/browse/THREESCALE-8273
-        return status.get('adminId', None) and status.get('tenantId', None)
+        return 'status' in obj.model and 'adminId' in obj.model.status and 'tenantId' in obj.model.status
 
 
 class Limits(DefaultClientNestedCRD, threescale_api.resources.Limits):
@@ -995,6 +1030,7 @@ class Limits(DefaultClientNestedCRD, threescale_api.resources.Limits):
     def in_create(self, maps, params, spec):
         """Do steps to create new instance"""
         maps = Limits.insert_to_list(maps, params, spec)
+        self.parent.read()
         self.parent.update({'limits': maps})
         maps = self.get_list(typ='normal')
         return Limits.get_from_list(maps, params, spec)
@@ -1010,12 +1046,13 @@ class Limits(DefaultClientNestedCRD, threescale_api.resources.Limits):
 
     def update_list(self, maps):
         """ Returns updated list. """
+        self.parent.read()
         return self.parent.update({'limits': maps})
 
-    def remove_from_list(self, mapsi, spec):
+    def remove_from_list(self, spec):
         """ Returns list without item specified by 'spec'. """
         maps = []
-        for mapi in mapsi:
+        for mapi in self.get_list():
             if mapi['id'] != (spec['period'], spec['metricMethodRef']['systemName']):
                 maps.append(self.translate_to_crd(mapi.entity))
         return maps
@@ -1157,6 +1194,7 @@ class PricingRules(DefaultClientNestedCRD, threescale_api.resources.PricingRules
     def in_create(self, maps, params, spec):
         """Do steps to create new instance"""
         maps = PricingRules.insert_to_list(maps, params, spec)
+        self.parent.read()
         self.parent.update({'pricingRules': maps})
         maps = self.get_list(typ='normal')
         return PricingRules.get_from_list(maps, params, spec)
@@ -1172,12 +1210,13 @@ class PricingRules(DefaultClientNestedCRD, threescale_api.resources.PricingRules
 
     def update_list(self, maps):
         """ Returns updated list. """
+        self.parent.read()
         return self.parent.update({'pricingRules': maps})
 
-    def remove_from_list(self, mapsi, spec):
+    def remove_from_list(self, spec):
         """ Returns list without item specified by 'spec'. """
         maps = []
-        for mapi in mapsi:
+        for mapi in self.get_list():
             map_ret = self.translate_to_crd(mapi.entity)
             if map_ret != spec:
                 maps.append(map_ret)
@@ -1302,19 +1341,21 @@ class Applications(DefaultClientCRD, threescale_api.resources.Applications):
 
     def before_create(self, params, spec):
         """Called before create."""
-        service = self.parent.services.read(params.pop('service_id'))
-        plan = service.app_plans.read(params['plan_id'])
-        spec['spec']['productCR']['name'] = service['system_name']
+        service = self.parent.services.fetch(int(params.pop('service_id')))
+        plan = params['plan_id']
+        if isinstance(params['plan_id'], int):
+            plan = service.app_plans.read(params['plan_id'])['system_name']
+        spec['spec']['productCR']['name'] = service.crd.as_dict()['metadata']['name']
         spec['spec']['accountCR']['name'] = self.account['name']
-        spec['spec']['applicationPlanName'] = plan['system_name']
+        spec['spec']['applicationPlanName'] = plan
 
     def before_update(self, new_params, resource):
         """Called before update."""
         pass
 
-    def _is_ready(self, status, new_id):
+    def _is_ready(self, obj):
         """ Is object ready? """
-        return status['conditions'][0]['status'] == 'True'
+        return 'status' in obj.model and 'conditions' in obj.model.status and obj.as_dict()['status']['conditions'][0]['status'] == 'True'
 
     def trans_item(self, key, value, obj):
         """ Translate entity to CRD. """
@@ -1330,19 +1371,20 @@ class Methods(DefaultClientNestedCRD, threescale_api.resources.Methods):
     SPEC = constants.SPEC_METHOD
     KEYS = constants.KEYS_METHOD
     SELECTOR = 'Product'
-    ID_NAME = 'friendly_name'
+    ID_NAME = 'name'
     def __init__(self, *args, entity_name='method', entity_collection='methods', **kwargs):
         super().__init__(*args, entity_name=entity_name, entity_collection=entity_collection,
                          **kwargs)
 
     def before_create(self, params, spec):
         """Called before create."""
-        if 'name' in params:
-            params['friendly_name'] = params.pop('name')
-        if 'system_name' in params:
+        if 'name' in params and 'friendly_name' not in params:
+            params['friendly_name'] = params.get('name')
+        if 'system_name' in params and 'friendly_name' not in params:
             params['friendly_name'] = params.pop('system_name')
         if 'description' not in params:
-            params['description'] = params['friendly_name']
+            params['description'] = params.get('name')
+        params.pop('system_name', None)
 
     def before_update(self, new_params, resource):
         """Called before update."""
@@ -1359,6 +1401,7 @@ class Methods(DefaultClientNestedCRD, threescale_api.resources.Methods):
         """Do steps to create new instance"""
         name = params.get(self.ID_NAME)
         maps[name] = spec['spec']
+        self.topmost_parent().read()
         self.topmost_parent().update({'methods': maps})
         for mapi in self.get_list():
             if all([params[key] == mapi[key] for key in params.keys()]):
@@ -1377,12 +1420,13 @@ class Methods(DefaultClientNestedCRD, threescale_api.resources.Methods):
 
     def update_list(self, maps):
         """ Returns updated list. """
+        self.topmost_parent().read()
         return self.topmost_parent().update({'methods': maps})
 
-    def remove_from_list(self, mapsi, spec):
+    def remove_from_list(self, spec):
         """ Returns list without item specified by 'spec'. """
         maps = {}
-        for mapi in mapsi:
+        for mapi in self.get_list():
             map_ret = self.translate_to_crd(mapi.entity)
             if map_ret != spec:
                 name = mapi[self.ID_NAME]
@@ -1538,11 +1582,14 @@ class Proxy(DefaultResourceCRD, threescale_api.resources.Proxy):
             super().__init__(crd=crd, entity=entity, **kwargs)
 
             # there is 'endpoint' and 'sandbox_endpoint' just in apicastSelfManaged and not in apicastHosted
-            if ('endpoint' not in entity) or ('sandbox_endpoint' not in entity):
+            # also auth related attrs are needed
+            required_attrs = ['endpoint', 'sandbox_endpoint', 'credentials_location', 'auth_user_key',
+                              'auth_app_id', 'auth_app_key']
+            if any([att not in entity for att in required_attrs]):
                 self.client.disable_crd_implemented()
                 self.parent.client.disable_crd_implemented()
                 tmp_proxy = self.parent.proxy.fetch()
-                for name in ['endpoint', 'sandbox_endpoint']:
+                for name in required_attrs:
                     self.entity[name] = tmp_proxy[name]
                 self.client.enable_crd_implemented()
                 self.parent.client.enable_crd_implemented()
@@ -1656,6 +1703,8 @@ class MappingRule(DefaultResourceCRD, threescale_api.resources.MappingRule):
                 # else:
                 met_system_name = entity['metric_id']
                 met = self.parent.metrics.read_by(**{'name': met_system_name})
+                if not met:
+                    met = self.parent.metrics.read_by_name('hits').methods.read_by(**{'name': met_system_name})
                 entity['metric_id'] = met['id']
         else:
             # this is not here because of some backup, but because we need to have option
@@ -1937,6 +1986,9 @@ class BackendUsage(DefaultResourceCRD, threescale_api.resources.BackendUsage):
                         entity[cey] = value
             entity['service_id'] = int(crd.as_dict().get('status', {}).get(Services.ID_NAME, 0))
             back = client.threescale_client.backends.read_by_name(spec['name'])
+            # # exception for deleting BackendUsage which is used in any proxy,
+            # # backendusage should be removed first and then proxy.deploy should be performed
+            # entity['backend_id'] = int(back['id']) if back['id'] else None
             entity['backend_id'] = int(back['id'])
             # simulate entity_id by list of attributes
             entity['id'] = (entity['path'], entity['backend_id'], entity['service_id'])
@@ -1985,16 +2037,16 @@ class ApplicationPlan(DefaultResourceCRD, threescale_api.resources.ApplicationPl
                 entity['name'] = spec['system_name']
             spec['state_event'] = 'publish' if spec.get('state_event', False) else 'unpublish'
             # simulate id because CRD has no ids
-            # entity['id'] = entity['name']
+            entity['id'] = entity['name']
             # it is not possible to simulate id here because it is used in Application, which is not implemented
-            entity['id'] = ApplicationPlan.system_name_to_id.get(entity['system_name'], None)
-            if not entity['id']:
-                client.disable_crd_implemented()
-                plan = threescale_api.resources.ApplicationPlans.read_by_name(client, entity['system_name'])
-                entity['id'] = plan['id']
-                ApplicationPlan.system_name_to_id[entity['system_name']] = int(entity['id'])
-                ApplicationPlan.id_to_system_name[entity['id']] = entity['system_name']
-                client.enable_crd_implemented()
+            #entity['id'] = ApplicationPlan.system_name_to_id.get(entity['system_name'], None)
+            #if not entity['id']:
+            #    client.disable_crd_implemented()
+            #    plan = threescale_api.resources.ApplicationPlans.read_by_name(client, entity['system_name'])
+            #    entity['id'] = plan['id']
+            #    ApplicationPlan.system_name_to_id[entity['system_name']] = int(entity['id'])
+            #    ApplicationPlan.id_to_system_name[entity['id']] = entity['system_name']
+            #    client.enable_crd_implemented()
             self.entity_id = entity.get('id')
 
             super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
@@ -2113,7 +2165,7 @@ class AccountUser(DefaultResourceCRD, threescale_api.resources.AccountUser):
         password_ascii = str(password).encode('ascii')
         password_enc = base64.b64encode(password_ascii)
         spec_sec = copy.deepcopy(constants.SPEC_SECRET)
-        name = secrets.token_urlsafe(8).lower().replace('_', '')
+        name = secrets.token_urlsafe(8).lower().replace('_', '').replace('-', '')
         spec_sec['metadata']['name'] = name
         spec_sec['metadata']['namespace'] = namespace
         spec_sec['data']['password'] = password_enc.decode('ascii')
@@ -2124,6 +2176,18 @@ class AccountUser(DefaultResourceCRD, threescale_api.resources.AccountUser):
     # @property
     # def permissions(self) -> 'UserPermissionsClient':
     #     return UserPermissionsClient(parent=self, instance_klass=UserPermissions)
+    
+    def _is_ready(self, obj):
+        """ Is object ready? """
+        if not ('status' in obj.model and 'conditions' in obj.model.status):
+            return False
+        state = {'Failed': True, 'Invalid': True, 'Orphan': False, 'Ready': False}
+        for sta in obj.as_dict()['status']['conditions']:
+            state[sta['type']] = (sta['status'] == 'True')
+
+        return not state['Failed'] and\
+            not state['Invalid'] and\
+            state['Orphan'] != state['Ready']
 
 
 class Policy(DefaultResourceCRD, threescale_api.resources.Policy):
@@ -2186,11 +2250,26 @@ class OpenApi(DefaultResourceCRD):
                 for cey, walue in constants.KEYS_OPEN_API.items():
                     if key == walue:
                         entity[cey] = value
-            entity['id'] = crd.as_dict().get('status').get(OpenApis.ID_NAME)
+            status = crd.as_dict().get('status')
+            entity['id'] = status.get(OpenApis.ID_NAME)
+            entity['productResourceName'] = status.get('productResourceName', {}).get('name')
+            entity['backendResourceNames'] = []
+            for back_name in status.get('backendResourceNames', []):
+                entity['backendResourceNames'].append(back_name.get('name'))
             OpenApiRef.load_openapi(entity, spec['openapiRef'])
 
         super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
 
+    @property
+    def service(self) -> 'Service':
+        return self.threescale_client.services.fetch_crd_entity(self.entity['productResourceName'])
+
+    @property
+    def backends(self) -> list:
+        ret = []
+        for back_name in self.entity['backendResourceNames']:
+            ret.append(self.threescale_client.backends.fetch_crd_entity(back_name))
+        return ret
 
 class Tenant(DefaultResourceCRD, threescale_api.resources.Tenant):
     """
@@ -2431,11 +2510,20 @@ class Application(DefaultResourceCRD, threescale_api.resources.Application):
 
         Returns(Application): Application resource instance
         """
+        app = self
+        status = None
         if state == 'suspend':
-            return self.update({'suspend': True})
+            app = self.update({'suspend': True})
+            status = 'suspended'
         if state == 'resume':
-            return self.update({'suspend': False})
-        return self
+            app = self.update({'suspend': False})
+            status = 'live'
+        counters = [89, 55, 34, 21, 13, 8, 5, 3, 2, 1, 1, 1]
+        while app['state'] != status and len(counters):
+            time.sleep(counters.pop())
+            app = app.read()
+
+        return app
 
 
 class Method(DefaultResourceCRD, threescale_api.resources.Method):
@@ -2454,8 +2542,10 @@ class Method(DefaultResourceCRD, threescale_api.resources.Method):
                     if key == walue:
                         entity[cey] = value
             # simulate id because CRD has no ids
-            entity['name'] = entity['friendly_name']
-            entity['system_name'] = entity['friendly_name']
+            if 'name' not in entity:
+                entity['name'] = entity['friendly_name']
+            if 'system_name' not in entity:
+                entity['system_name'] = entity['friendly_name']
             entity['id'] = entity['name']
             self.entity_id = entity.get('id')
 

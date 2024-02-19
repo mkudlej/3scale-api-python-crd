@@ -190,6 +190,7 @@ def backend_updated_usage_params(backend_usage_params):
 
 @pytest.fixture(scope='module')
 def backend_usage(service, backend, backend_usage_params) -> BackendUsage:
+    service = service.read()
     resource = service.backend_usages.create(params=backend_usage_params)
     yield resource
     cleanup(resource)
@@ -258,6 +259,7 @@ def method(hits_metric, method_params):
     resource = hits_metric.methods.create(params=method_params)
     yield resource
     cleanup(resource)
+    #service.proxy.deploy()
 
 
 @pytest.fixture(scope='module')
@@ -314,23 +316,26 @@ def updated_backend_mapping_rules_params(backend_mapping_rule_params):
 
 
 @pytest.fixture(scope='module')
-def mapping_rule(service, mapping_rule_params) -> MappingRule:
+def mapping_rule(service, mapping_rule_params, proxy) -> MappingRule:
     """
     Fixture for getting mapping rule for product/service.
     """
     resource = service.mapping_rules.create(params=mapping_rule_params)
     yield resource
     cleanup(resource)
+    proxy.deploy()
 
 
 @pytest.fixture(scope='module')
-def backend_mapping_rule(backend, backend_metric, backend_mapping_rule_params) -> BackendMappingRule:
+def backend_mapping_rule(backend, backend_metric, backend_mapping_rule_params, service, proxy, backend_usage) -> BackendMappingRule:
     """
     Fixture for getting mapping rule for backend.
     """
+    backend = backend.read()
     resource = backend.mapping_rules.create(params=backend_mapping_rule_params)
     yield resource
     cleanup(resource)
+    proxy.deploy()
 
 
 @pytest.fixture(scope='module')
@@ -428,7 +433,7 @@ def tenant_params():
     """
     return dict(name=f"tenant{get_suffix()}",
                 admin_password="123456",
-                email="email@invalid.invalid",
+                email=f"e{get_suffix()}@invalid.invalid",
                 org_name="org")
 
 
@@ -467,7 +472,7 @@ def openapi_params(active_docs_body):
         name=name,
         productionPublicBaseURL='http://productionPublicBaseURL',
         stagingPublicBaseURL='http://stagingPublicBaseURL',
-        productSystemName='productsystemname',  # https://issues.redhat.com/browse/THREESCALE-8128
+        productSystemName='PrOdUcTsYsTeMnAmE',
         privateBaseURL='http://privateBaseURL',
         prefixMatching=True,
         privateAPIHostHeader='privateAPIHostHeader',

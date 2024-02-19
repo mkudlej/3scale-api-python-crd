@@ -9,7 +9,7 @@ from tests.integration import asserts
 
 def test_should_list_backend_usages(backend, service, backend_usage):
     assert len(service.backend_usages.list()) > 0
-    assert len(backend.usages.list()) > 0
+    assert len(backend.usages()) > 0
 
 def test_should_create_backend_usage(backend_usage, backend_usage_params):
     asserts.assert_resource(backend_usage)

@@ -63,7 +63,7 @@ def test_application_update(update_application_params, application):
 # changing application state tests
 
 def test_application_set_state(application):
-    application.set_state('suspend')
+    application = application.set_state('suspend')
     assert application['state'] == 'suspended'
-    application.set_state('resume')
+    application = application.set_state('resume')
     assert application['state'] == 'live'

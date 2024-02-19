@@ -33,14 +33,13 @@ def test_should_update_mapping_rule(service, backend, backend_usage, backend_map
     response = apicast_http_client.get(path=resource['pattern'])
     asserts.assert_http_ok(response)
     resource.delete()
+    service.proxy.deploy()
 
 # end of tests important for CRD - CRU + list
 
 
 def test_should_mapping_rule_endpoint_return_ok(service, backend,
         backend_usage, backend_mapping_rule, application, apicast_http_client):
-    backend_mapping_rule.update()
-    service.proxy.deploy()
     response = apicast_http_client.get(path=f"{backend_mapping_rule['pattern']}")
     asserts.assert_http_ok(response)
 
@@ -67,3 +66,4 @@ def test_stop_processing_mapping_rules_once_first_one_is_met(service,
 
     resource_first.delete()
     resource_second.delete()
+    service.proxy.deploy()

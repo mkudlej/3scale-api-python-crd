@@ -22,7 +22,7 @@ def test_openapi_can_be_read(api, openapi_params, openapi):
 def test_openapi_can_be_updated(api, openapi):
     des_changed = (openapi['productSystemName'] or '') + '_changed'
     openapi['productSystemName'] = des_changed
-    gg = openapi.update()
+    openapi.update()
     assert openapi['productSystemName'] == des_changed
     updated = openapi.read()
     assert updated['productSystemName'] == des_changed

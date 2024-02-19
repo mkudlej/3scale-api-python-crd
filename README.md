@@ -49,6 +49,7 @@ see https://github.com/3scale/3scale-operator/blob/master/doc/backend-reference.
 Command to run integration unit tests: `pipenv run pytest --log-cli-level=10 -vvvv -s ./tests/integration/ |& tee x`
  
 ### TODO
+- do https://github.com/3scale/3scale-operator/pull/813
 - do not simulate app plan id
 - create unit integration tests for:
   - ProductDeploymentSpec

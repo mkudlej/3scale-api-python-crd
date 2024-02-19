@@ -8,7 +8,9 @@ import time
 from typing import Dict, List, Union
 
 import threescale_api
-import openshift as ocp
+import threescale_api.errors
+import openshift_client as ocp
+from openshift_client import OpenShiftPythonException
 
 from threescale_api_crd import resources, constants, client
 
@@ -25,6 +27,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
     ID_NAME = None
 
     def __init__(self, parent=None, instance_klass=None, entity_name=None, entity_collection=None):
+        ocp.set_default_loglevel(6)
         super().__init__(parent=parent, instance_klass=instance_klass,
                          entity_name=entity_name, entity_collection=entity_collection)
 
@@ -32,13 +35,17 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         """ Returns list of entities. """
         return []
 
-    def read_crd(self, selector, obj_name=None):
-        """Read current CRD definition based on selector and/or object name."""
+    def get_selector(self, obj_name=None):
+        """ Returns OCP selector for objects. """
         sel = self.SELECTOR + '.capabilities.3scale.net'
         if obj_name:
             sel += '/' + obj_name
-        LOG.info('CRD read %s', str(sel))
-        return ocp.selector(sel).objects()
+        return ocp.selector(sel)
+
+    def read_crd(self, obj_name=None):
+        """Read current CRD definition based on selector and/or object name."""
+        LOG.info('CRD read %s %s', str(self.SELECTOR), str(obj_name))
+        return self.get_selector(obj_name).objects()
 
     def is_crd_implemented(self):
         """Returns True is crd is implemented in the client"""
@@ -52,8 +59,31 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         """Set False to crd is implemented attribute"""
         self.__class__.CRD_IMPLEMENTED = False
 
+    def fetch_crd_entity(self, name: str):
+        """Fetches the entity based on crd name
+        Args:
+            name(str): entity crd name
+        Returns(obj): Resource
+        """
+        LOG.info(self._log_message("[FETCH] CRD Fetch by crd name: ", entity_id=name))
+        if not self.is_crd_implemented():
+            raise threescale_api.errors.ThreeScaleApiError(message="Not supported method")
+        inst = self._create_instance(response=self.read_crd(name))
+        return inst[0] if inst else None
+
+    def read_by_name(self, name: str, **kwargs) -> 'DefaultResource':
+        """Read resource by name
+        Args:
+            name: Name of the resource (either system name, name, org_name ...)
+            **kwargs:
+
+        Returns:
+
+        """
+        return self.fetch_crd_entity(name) or super().read_by_name(name, **kwargs) 
+
     def fetch(self, entity_id: int = None, **kwargs):
-        """Fetch the entity dictionary
+        """Fetches the entity dictionary
         Args:
             entity_id(int): Entity id
             **kwargs: Optional args
@@ -62,7 +92,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         """
         LOG.info(self._log_message("[FETCH] CRD Fetch ", entity_id=entity_id, args=kwargs))
         if self.is_crd_implemented():
-            list_crds = self.read_crd(self._entity_collection)
+            list_crds = self.read_crd()
             instance_list = self._create_instance(response=list_crds)
             ret = []
             if isinstance(instance_list, list):
@@ -96,7 +126,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         """
         LOG.info(self._log_message("[_LIST] CRD", args=kwargs))
         if self.is_crd_implemented():
-            list_crds = self.read_crd(self._entity_collection)
+            list_crds = self.read_crd()
             instance = self._create_instance(response=list_crds, collection=True)
             return instance
         return threescale_api.defaults.DefaultClient._list(self, **kwargs)
@@ -104,7 +134,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
     @staticmethod
     def normalize(str_in: str):
         """Some values in CRD cannot contain some characters."""
-        return str_in.replace('-', '').replace('_', '').lower()
+        return str_in.translate(''.maketrans({'-': '', '_': '', '/': ''})).lower()
 
     @staticmethod
     def cleanup_spec(spec, keys, params):
@@ -139,26 +169,34 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
 
             result = ocp.create(spec)
             assert result.status() == 0
-            list_objs = self.read_crd(self._entity_collection,
-                                      result.out().strip().split('/')[1])
+            #list_objs = self.read_crd(result.out().strip().split('/')[1])
             created_objects = []
-            counters = [89, 55, 34, 21, 13, 8, 5, 3, 2, 1, 1, 1]
-            while len(list_objs) > 0 and len(counters) > 0:
-                list_objs2 = []
-                for obj in list_objs:
-                    obj.refresh()
-                    status = obj.as_dict().get('status', None)
-                    if status:
-                        new_id = status.get(self.ID_NAME, 0)
-                        if self._is_ready(status, new_id):
-                            created_objects.append(obj)
-                        else:
-                            list_objs2.append(obj)
-                    else:
-                        list_objs2.append(obj)
-                list_objs = list_objs2
-                if not list_objs:
-                    time.sleep(counters.pop())
+            #counters = [89, 55, 34, 21, 13, 8, 5, 3, 2, 1, 1, 1]
+            #while len(list_objs) > 0 and len(counters) > 0:
+            #    list_objs2 = []
+            #    for obj in list_objs:
+            #        obj.refresh()
+            #        status = obj.as_dict().get('status', None)
+            #        if status:
+            #            new_id = status.get(self.ID_NAME, 0)
+            #            if self._is_ready(status, new_id):
+            #                created_objects.append(obj)
+            #            else:
+            #                list_objs2.append(obj)
+            #        else:
+            #            list_objs2.append(obj)
+            #    list_objs = list_objs2
+            #    if not list_objs:
+            #        time.sleep(counters.pop())
+
+            timeout = 200
+            #if self.__class__.__name__ in ['Promotes']:
+            #    timeout = 1000
+
+            with ocp.timeout(timeout):
+                (success, created_objects, _) = result.until_all(success_func=lambda obj: self._is_ready(obj))
+                assert created_objects
+                assert success
 
             instance = (self._create_instance(response=created_objects)[:1] or [None])[0]
             return instance
@@ -174,8 +212,12 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             spec['spec']['providerAccountRef']['namespace'] = self.threescale_client.ocp_namespace
         return spec
 
-    def _is_ready(self, status, new_id):
+    def _is_ready(self, obj):
         """ Is object ready? """
+        if not ('status' in obj.model and 'conditions' in obj.model.status):
+            return False
+        status = obj.as_dict()['status']
+        new_id = status.get(self.ID_NAME, 0)
         state = {'Failed': True, 'Invalid': True, 'Synced': False, 'Ready': False}
         for sta in status['conditions']:
             state[sta['type']] = (sta['status'] == 'True')
@@ -250,7 +292,8 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 resource = resource.read()
                 if isinstance(resource, list):
                     resource = resource[0]
-            resource.crd.refresh()
+            else:
+                resource.crd.refresh()
             new_crd = resource.crd.as_dict()
             new_crd['spec'].update(new_spec)
             if self.__class__.__name__ not in ['Tenants']:
@@ -259,7 +302,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
                 else:
                     new_crd['spec']['providerAccountRef'] = {
                         'name': self.threescale_client.ocp_provider_ref,
-                        'namespace': self.threescale_client.ocp_namespace
+                        #'namespace': self.threescale_client.ocp_namespace
                     }
             resource.crd.model = ocp.Model(new_crd)
             result = resource.crd.replace()
@@ -267,7 +310,8 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             if result.status():
                 LOG.error("[INSTANCE] Update CRD failed: %s", str(result))
                 raise Exception(str(result))
-            return self.read(resource.entity_id)
+            #return self.read(resource.entity_id)
+            return resource
 
         return threescale_api.defaults.DefaultClient.update(self, entity_id=entity_id,
                                                             params=params, **kwargs)
@@ -322,7 +366,7 @@ class DefaultClientNestedCRD(DefaultClientCRD):
                     spec = (DictQuery(service_with_maps.as_dict()).get(klass.GET_PATH or self.get_path())) or []
                 if isinstance(spec, list):
                     return [{'spec': obj, 'crd': service_with_maps} for obj in spec]
-                elif 'apicastHosted' not in spec.keys():  # exception for Proxy
+                elif 'apicastHosted' not in spec.keys():  # dict branch, exception for Proxy
                     ret = []
                     for key, obj in spec.items():
                         obj[self.ID_NAME] = key
@@ -346,7 +390,8 @@ class DefaultClientNestedCRD(DefaultClientCRD):
                 else:
                     params['username'] = name
             else:
-                name = self.normalize(''.join(random.choice(string.ascii_letters) for _ in range(16)))
+                params['name'] = self.normalize(''.join(random.choice(string.ascii_letters) for _ in range(16)))
+                name = params['name']
 
             self.before_create(params, spec)
 
@@ -362,7 +407,7 @@ class DefaultClientNestedCRD(DefaultClientCRD):
         LOG.info(self._log_message("[DELETE] Delete CRD Nested ", entity_id=entity_id, args=kwargs))
         if self.is_crd_implemented():
             spec = self.translate_to_crd(resource.entity)
-            maps = self.remove_from_list(self.get_list(), spec)
+            maps = self.remove_from_list(spec)
             self.update_list(maps)
             return True
         return threescale_api.defaults.DefaultClient.delete(self, entity_id=entity_id, **kwargs)
@@ -389,12 +434,12 @@ class DefaultClientNestedCRD(DefaultClientCRD):
             # Policies
             # PricingRules
             # Proxies
+            #if self.__class__.__name__ == 'BackendUsages':
             spec = self.before_update(new_params, resource)
 
-            maps = self.remove_from_list(self.get_list(), spec)
+            maps = self.remove_from_list(spec)
 
-            par = self.parent
-
+            #par = self.parent
             maps = self.before_update_list(maps, new_params, spec, resource)
 
             par = self.update_list(maps)

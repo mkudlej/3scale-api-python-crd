@@ -2,7 +2,7 @@
 flake8 = "*"
 mypy = "*"
 pylint = "*"
-pytest = "*"
+pytest = "<8.0.0"
 python-dotenv = "*"
 backoff = "*"
 responses = "*"

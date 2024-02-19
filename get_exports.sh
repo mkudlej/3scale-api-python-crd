@@ -25,6 +25,7 @@ ACCESS_TOKEN="$(curl -X POST "${DOMAIN}/admin/api/personal/access_tokens.json" -
 echo "Create secret with ${DOMAIN} ${ACCESS_TOKEN}"
 
 oc create secret --namespace=${NAMESPACE} generic ${SEC_NAME} --from-literal="adminURL=${DOMAIN}" --from-literal="token=${ACCESS_TOKEN}"
+oc label secret/${SEC_NAME} capabilities=''
 
 echo "export THREESCALE_PROVIDER_URL=\"${DOMAIN}\"" >> gen_exports.sh
 echo "export THREESCALE_PROVIDER_TOKEN=\"${ACCESS_TOKEN}\"" >> gen_exports.sh
@@ -44,6 +45,7 @@ ACCESS_TOKEN="$(curl -X POST "${DOMAIN}/admin/api/personal/access_tokens.json" -
 echo "Create master secret with ${DOMAIN} ${ACCESS_TOKEN}"
 
 oc create secret --namespace=${NAMESPACE} generic ${SEC_NAME} --from-literal="MASTER_ACCESS_TOKEN=${ACCESS_TOKEN}"
+oc label secret/${SEC_NAME} capabilities=''
 
 echo "export THREESCALE_MASTER_URL=\"${DOMAIN}\"" >> gen_exports.sh
 echo "export THREESCALE_MASTER_TOKEN=\"${ACCESS_TOKEN}\"" >> gen_exports.sh

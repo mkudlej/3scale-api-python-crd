@@ -66,6 +66,7 @@ def test_should_apicast_return_403_when_metric_is_disabled(
     assert response.status_code == 403
     back_lim.delete()
     back_mapping.delete()
+    proxy.deploy()
     back_metric.delete()
 
 
@@ -102,6 +103,7 @@ def test_should_apicast_return_429_when_limits_exceeded(
     assert response.status_code == 429
     back_lim.delete()
     back_mapping.delete()
+    proxy.deploy()
     back_metric.delete()
 
 
