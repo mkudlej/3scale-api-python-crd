@@ -201,7 +201,7 @@ def metric_params(service):
     suffix = get_suffix()
     friendly_name = f'test-metric-{suffix}'
     name = f'{friendly_name}'.replace('-', '_')
-    return dict(friendly_name=friendly_name, name=name, unit='count')
+    return dict(friendly_name=friendly_name, system_name=name, unit='count')
 
 
 @pytest.fixture(scope='module')
@@ -210,7 +210,7 @@ def backend_metric_params():
     friendly_name = f'test-metric-{suffix}'
     name = f'{friendly_name}'.replace('-', '')
     return dict(friendly_name=friendly_name,
-                name=name, unit='count')
+                system_name=name, unit='count')
 
 
 @pytest.fixture(scope='module')
@@ -264,7 +264,7 @@ def method(hits_metric, method_params):
 
 @pytest.fixture(scope='module')
 def hits_metric(service):
-    return service.metrics.read_by(name='hits')
+    return service.metrics.read_by(system_name='hits')
 
 
 def get_mapping_rule_pattern():
@@ -431,7 +431,7 @@ def tenant_params():
     """
     Params for custom tenant
     """
-    return dict(name=f"tenant{get_suffix()}",
+    return dict(username=f"tenant{get_suffix()}",
                 admin_password="123456",
                 email=f"e{get_suffix()}@invalid.invalid",
                 org_name="org")

@@ -26,7 +26,7 @@ SERVICE_AUTH_DEFS = {
          },
     'oidc': {
              'oidc': {
-                 'issuerEndpoint': None,
+                 'issuerEndpoint': ' ',
                  'issuerType': 'keycloak',
                  'authenticationFlow': {
                      'standardFlowEnabled': False,
@@ -370,25 +370,6 @@ SPEC_METHOD = {
     }
 }
 
-KEYS_PROXY_RESPONSES = {
-    'error_auth_failed': 'errorAuthFailed',
-    'error_auth_missing': 'errorAuthMissing',
-    'systemName': None,
-    'description': None,
-    'deployment': {
-        'apicastHosted': {
-            'authentication': {
-                'userkey': {
-                    'authUserKey': 'token',
-                    'credentials': 'query',
-                    'gatewayResponse': {
-                    },
-                },
-            },
-        },
-    }
-}
-
 KEYS_SERVICE = {
     'description': 'description',
     'name': 'name',
@@ -419,20 +400,20 @@ KEYS_PROXY_RESPONSES = {
 
 KEYS_PROXY_SECURITY = {
     'secret_token': 'secretToken',
-    'host_header': 'hostHeader',
+    'hostname_rewrite': 'hostHeader',
 }
 
 KEYS_PROXY = {
+    'auth_app_id': 'appID',
+    'auth_app_key': 'appKey',
+    'auth_user_key': 'authUserKey',
     'credentials_location': 'credentials',
     'endpoint': 'productionPublicBaseURL',
-    'sandbox_endpoint': 'stagingPublicBaseURL',
-    'auth_user_key': 'authUserKey',
-    'auth_app_key': 'appKey',
-    'auth_app_id': 'appID',
-    'oidc_issuer_endpoint': 'issuerEndpoint',
-    'oidc_issuer_type': 'issuerType',
     'jwt_claim_with_client_id': 'jwtClaimWithClientID',
     'jwt_claim_with_client_id_type': 'jwtClaimWithClientIDType',
+    'oidc_issuer_endpoint': 'issuerEndpoint',
+    'oidc_issuer_type': 'issuerType',
+    'sandbox_endpoint': 'stagingPublicBaseURL',
 }
 
 KEYS_OIDC = {
@@ -482,7 +463,7 @@ KEYS_METRIC = {
     'description': 'description',
     'unit': 'unit',
     'friendly_name': 'friendlyName',
-    'name': 'name'
+    'system_name': 'system_name'
 }
 
 KEYS_LIMIT = {
@@ -550,7 +531,6 @@ KEYS_OPEN_API_OIDC = {
     'jwtClaimWithClientID': 'jwtClaimWithClientID',
     'jwtClaimWithClientIDType': 'jwtClaimWithClientIDType',
     'credentials': 'credentials',
-    'security': 'security',
     'gatewayResponse': 'gatewayResponse',
 }
 
@@ -595,7 +575,7 @@ KEYS_APPLICATION = {
 KEYS_METHOD = {
     'description': 'description',
     'friendly_name': 'friendlyName',
-    'name': 'name'
+    'system_name': 'system_name'
 }
 
 SPEC_SECRET = {

@@ -40,12 +40,14 @@ class Services(DefaultClientCRD, threescale_api.resources.Services):
         if 'mapping_rules' in params.keys():
             spec['spec']['mappingRules'] = params['mapping_rules']
         if 'backend_version' in params.keys():
-            spec['spec']['deployment']['apicastHosted']['authentication'] = constants.SERVICE_AUTH_DEFS[params['backend_version']]
+            key = list(spec['spec']['deployment'].keys())[0]
+            spec['spec']['deployment'][key]['authentication'] = constants.SERVICE_AUTH_DEFS[params['backend_version']]
 
     def before_update(self, new_params, resource):
         """Called before update."""
-        if 'backend_version' in new_params.keys():
-            resource.entity['deployment']['apicastHosted']['authentication'] = constants.SERVICE_AUTH_DEFS[new_params['backend_version']]
+        #if 'backend_version' in new_params.keys():
+        #    key = list(resource.entity['deployment'].keys())[0]
+        #    resource.entity['deployment'][key]['authentication'] = constants.SERVICE_AUTH_DEFS[new_params['backend_version']]
 
     @property
     def metrics(self) -> 'Metrics':
@@ -93,27 +95,30 @@ class Proxies(DefaultClientNestedCRD, threescale_api.resources.Proxies):
         # service.proxy.oidc.update(params={"oidc_configuration": DEFAULT_FLOWS})
         if not resource:
             resource = self.list()
+        if new_params.get('deployment_option', 'hosted') == 'hosted':
+            resource.spec_path[0] = 'apicastHosted'
+        else:
+            resource.spec_path[0] = 'apicastSelfManaged'
 
         for path in resource.spec_path:
             if path not in iter_obj:
-                if path == resource.spec_path[-1]:
-                    iter_obj[path] = spec
-                    if resource.oidc['oidc_configuration']:
-                        auth_flow = self.translate_specific_to_crd(
-                                resource.oidc['oidc_configuration'],
-                                constants.KEYS_OIDC)
-                        iter_obj[path]['authenticationFlow'] = auth_flow
-                    if resource.responses or\
-                        (set(new_params.keys()).intersection(set(constants.KEYS_PROXY_RESPONSES))):
-                        resource.responses = True
-                        resps = self.translate_specific_to_crd(new_params, constants.KEYS_PROXY_RESPONSES)
-                        iter_obj[path]['gatewayResponse'] = resps
-                    if resource.security:
-                        sec = self.translate_specific_to_crd(new_params, constants.KEYS_PROXY_SECURITY)
-                        iter_obj[path]['gatewayResponse'] = sec
+                iter_obj[path] = {}
+            if path == resource.spec_path[-1]:
+                iter_obj[path] = spec
+                if resource.oidc['oidc_configuration']:
+                    auth_flow = self.translate_specific_to_crd(
+                            resource.oidc['oidc_configuration'],
+                            constants.KEYS_OIDC)
+                    iter_obj[path]['authenticationFlow'] = auth_flow
+                if resource.responses or\
+                    (set(new_params.keys()).intersection(set(constants.KEYS_PROXY_RESPONSES))):
+                    resource.responses = True
+                    resps = self.translate_specific_to_crd(new_params, constants.KEYS_PROXY_RESPONSES)
+                    iter_obj[path]['gatewayResponse'] = resps
+                if resource.security:
+                    sec = self.translate_specific_to_crd(new_params, constants.KEYS_PROXY_SECURITY)
+                    iter_obj[path]['gatewayResponse'] = sec
 
-                else:
-                    iter_obj[path] = {}
             iter_obj = iter_obj[path]
 
         return obj
@@ -138,7 +143,9 @@ class Proxies(DefaultClientNestedCRD, threescale_api.resources.Proxies):
         return DefaultClientCRD.list(self, **kwargs)
 
     def update(self, *args, **kwargs):
+        oidc = kwargs.get("oidc", None)
         kwargs['resource'] = self.list()
+        kwargs['resource'].oidc['oidc_configuration'] = oidc
         return DefaultClientNestedCRD.update(self, *args, **kwargs)
 
     def delete(self):
@@ -221,7 +228,7 @@ class MappingRules(DefaultClientNestedCRD, threescale_api.resources.MappingRules
         """Called before create."""
         params.pop('name', None)
         if 'last' in params.keys() and isinstance(params['last'], str):
-            params.update({'last': params['last'] == "true"})
+            params.update({'last': (params['last'] == "true" or params['last'] == "True")})
 
     def in_create(self, maps, params, spec):
         """Do steps to create new instance"""
@@ -311,7 +318,10 @@ class MappingRules(DefaultClientNestedCRD, threescale_api.resources.MappingRules
         if 'position' in params.keys():
             maps.insert(int(params.pop('position', 1)) - 1, spec)
         elif 'last' in params.keys():
-            spec['last'] = True
+            if isinstance(params['last'], str):
+                spec['last'] = True
+            elif isinstance(params['last'], bool):
+                spec['last'] = params['last']
             maps.append(spec)
         else:
             maps.append(spec)
@@ -430,7 +440,7 @@ class Metrics(DefaultClientNestedCRD, threescale_api.resources.Metrics):
     SPEC = constants.SPEC_METRIC
     KEYS = constants.KEYS_METRIC
     SELECTOR = 'Product'
-    ID_NAME = 'name'
+    ID_NAME = 'system_name'
 
     def __init__(self, parent, *args, entity_name='metric', entity_collection='metrics',
                  **kwargs):
@@ -441,7 +451,7 @@ class Metrics(DefaultClientNestedCRD, threescale_api.resources.Metrics):
 
     def before_update(self, new_params, resource):
         """Called before update."""
-        new_params['id'] = (new_params['name'], new_params['unit'])
+        new_params['id'] = (new_params[Metrics.ID_NAME], new_params['unit'])
         if resource and 'id' in new_params:
             resource.entity_id = new_params['id']
         return self.translate_to_crd(new_params)
@@ -452,9 +462,7 @@ class Metrics(DefaultClientNestedCRD, threescale_api.resources.Metrics):
 
     def in_create(self, maps, params, spec):
         """Do steps to create new instance"""
-        name = params.get('name', params.get('system_name', 'hits'))
-        if 'name' in spec['spec']:
-            spec['spec'].pop('name')
+        name = params.pop(Metrics.ID_NAME, params.pop('name', 'hits')) # name is deprecated
         maps[name] = spec['spec']
         self.parent.read()
         self.parent.update({'metrics': maps})
@@ -484,7 +492,7 @@ class Metrics(DefaultClientNestedCRD, threescale_api.resources.Metrics):
         for mapi in self.get_list():
             map_ret = self.translate_to_crd(mapi.entity)
             if map_ret != spec:
-                name = mapi[self.ID_NAME]
+                name = mapi[Metrics.ID_NAME]
                 maps[name] = map_ret
         return maps
 
@@ -497,7 +505,7 @@ class Metrics(DefaultClientNestedCRD, threescale_api.resources.Metrics):
 
     def trans_item(self, key, value, obj):
         """ Translate entity to CRD. """
-        if key != 'name':
+        if key != 'system_name':
             return obj[key]
         return None
 
@@ -549,7 +557,7 @@ class BackendUsages(DefaultClientNestedCRD, threescale_api.resources.BackendUsag
         backend_id = spec['spec'].pop('backend_id')
         back = self.parent.parent.backends.read(int(backend_id))
 
-        maps[back[self.ID_NAME]] = spec['spec']
+        maps[back[BackendUsages.ID_NAME]] = spec['spec']
         self.parent.read()
         self.parent.update({'backend_usages': maps})
         params.pop('name', None)
@@ -584,7 +592,7 @@ class BackendUsages(DefaultClientNestedCRD, threescale_api.resources.BackendUsag
             if map_ret != spec:
                 backend_id = mapi['backend_id']
                 back = self.parent.parent.backends.read(int(backend_id))
-                maps[back[self.ID_NAME]] = map_ret
+                maps[back[BackendUsages.ID_NAME]] = map_ret
         return maps
 
     def topmost_parent(self):
@@ -626,7 +634,12 @@ class Policies(DefaultClientNestedCRD, threescale_api.resources.Policies):
         for item in new_params:
             if hasattr(item, 'entity'):
                 item = item.entity
-            spec.append(self.translate_to_crd(item))
+            if isinstance(item, tuple) or isinstance(item, list):
+                for it in item:
+                    spec.append(self.translate_to_crd(it))
+            elif item is not None:
+                spec.append(self.translate_to_crd(item))
+
         if resource and 'id' in new_params:
             resource.entity_id = new_params['id']
         return spec
@@ -664,6 +677,7 @@ class Policies(DefaultClientNestedCRD, threescale_api.resources.Policies):
         return self.parent
 
     def append(self, *policies):
+        policies = policies if policies else []
         pol_list = self.list()
         pol_list['policies_config'].extend(policies)
         return self.update(params=pol_list)
@@ -712,11 +726,11 @@ class ApplicationPlans(DefaultClientNestedCRD, threescale_api.resources.Applicat
 
     def in_create(self, maps, params, spec):
         """Do steps to create new instance"""
-        if self.ID_NAME in spec['spec']:
-            params[self.ID_NAME] = DefaultClientCRD.normalize(spec['spec'].pop(self.ID_NAME))
+        if ApplicationPlans.ID_NAME in spec['spec']:
+            params[ApplicationPlans.ID_NAME] = DefaultClientCRD.normalize(spec['spec'].pop(ApplicationPlans.ID_NAME))
         else:
-            params[self.ID_NAME] = DefaultClientCRD.normalize(spec['spec'].pop('name'))
-        maps[params[self.ID_NAME]] = spec['spec']
+            params[ApplicationPlans.ID_NAME] = DefaultClientCRD.normalize(spec['spec'].pop('name'))
+        maps[params[ApplicationPlans.ID_NAME]] = spec['spec']
         self.parent.read()
         self.parent.update({'application_plans': maps})
         for mapi in self.get_list():
@@ -747,7 +761,7 @@ class ApplicationPlans(DefaultClientNestedCRD, threescale_api.resources.Applicat
             map_ret = self.translate_to_crd(mapi.entity)
             map_ret.pop('limits', None)
             if map_ret != nspec:
-                name = mapi[self.ID_NAME]
+                name = mapi[ApplicationPlans.ID_NAME]
                 maps[name] = map_ret
         return maps
 
@@ -942,19 +956,19 @@ class Tenants(DefaultClientCRD, threescale_api.resources.Tenants):
         """Called before create."""
         spec['spec']['systemMasterUrl'] = self.threescale_client.url
         # create master credentials secret
-        mast_sec_name = params['name'] + 'mastsec'
+        mast_sec_name = params['username'] + 'mastsec'
         mas_params = {'MASTER_ACCESS_TOKEN': self.threescale_client.token}
         Tenants.create_secret(mast_sec_name, self.threescale_client.ocp_namespace, mas_params)
         spec['spec']['masterCredentialsRef']['name'] = mast_sec_name
         # create tenant admin secret
-        admin_sec_name = params['name'] + 'adminsec'
-        admin_params = {'admin_password': params['admin_password']}
+        admin_sec_name = params['username'] + 'adminsec'
+        admin_params = {'admin_password': params.get('admin_password', ''.join(random.choice(string.ascii_letters) for _ in range(16)))}
         Tenants.create_secret(admin_sec_name, self.threescale_client.ocp_namespace, admin_params)
         spec['spec']['passwordCredentialsRef']['name'] = admin_sec_name
 
         # tenant sec. ref.
         spec['spec']['tenantSecretRef'] = {
-            'name': params['name'] + 'tenant',
+            'name': params['username'] + 'tenant',
             'namespace': self.threescale_client.ocp_namespace
         }
 
@@ -1006,8 +1020,8 @@ class Limits(DefaultClientNestedCRD, threescale_api.resources.Limits):
 
     def before_create(self, params, spec):
         """Called before create."""
-        spec['spec']['metricMethodRef'] = {'systemName': self.metric['name']}
-        params['metric_name'] = self.metric['name']
+        spec['spec']['metricMethodRef'] = {'systemName': self.metric[Metrics.ID_NAME]}
+        params['metric_name'] = self.metric[Metrics.ID_NAME]
         params['plan_id'] = self.application_plan['id']
         if self.metric.__class__.__name__ == 'BackendMetric':
             spec['spec']['metricMethodRef']['backend'] = self.metric.parent['system_name']
@@ -1037,7 +1051,7 @@ class Limits(DefaultClientNestedCRD, threescale_api.resources.Limits):
 
     def get_list_from_spec(self):
         """ Returns list from spec """
-        return self.parent.crd.as_dict()['spec']['applicationPlans'][self.parent['name']].get('limits', [])
+        return self.parent.crd.as_dict()['spec']['applicationPlans'][self.parent['system_name']].get('limits', [])
 
     def before_update_list(self, maps, new_params, spec, resource):
         """ Modify some details in data before updating the list """
@@ -1138,11 +1152,11 @@ class Limits(DefaultClientNestedCRD, threescale_api.resources.Limits):
         if Limits.LIST_TYPE == 'normal':
             if self.metric.__class__.__name__ == 'BackendMetric':
                 return [obj for obj in instance \
-                        if self.metric['name'] == obj['metric_name'] and \
+                        if self.metric[BackendMetrics.ID_NAME] == obj['metric_name'] and \
                         self.metric.parent['system_name'] == obj['backend_name']]
             else:
                 return [obj for obj in instance \
-                        if self.metric['name'] == obj['metric_name'] and \
+                        if self.metric[Metrics.ID_NAME] == obj['metric_name'] and \
                         'backend_name' not in obj.entity]
         else:
             return [obj for obj in instance]
@@ -1165,8 +1179,8 @@ class PricingRules(DefaultClientNestedCRD, threescale_api.resources.PricingRules
 
     def before_create(self, params, spec):
         """Called before create."""
-        spec['spec']['metricMethodRef'] = {'systemName': self.metric['name']}
-        params['metric_name'] = self.metric['name']
+        spec['spec']['metricMethodRef'] = {'systemName': self.metric[Metrics.ID_NAME]}
+        params['metric_name'] = self.metric[Metrics.ID_NAME]
         params['plan_id'] = self.application_plan['id']
         if self.metric.__class__.__name__ == 'BackendMetric':
             spec['spec']['metricMethodRef']['backend'] = self.metric.parent['system_name']
@@ -1201,7 +1215,7 @@ class PricingRules(DefaultClientNestedCRD, threescale_api.resources.PricingRules
 
     def get_list_from_spec(self):
         """ Returns list from spec """
-        return self.parent.crd.as_dict()['spec']['applicationPlans'][self.parent['name']].get('pricingRules', [])
+        return self.parent.crd.as_dict()['spec']['applicationPlans'][self.parent['system_name']].get('pricingRules', [])
 
     def before_update_list(self, maps, new_params, spec, resource):
         """ Modify some details in data before updating the list """
@@ -1308,11 +1322,11 @@ class PricingRules(DefaultClientNestedCRD, threescale_api.resources.PricingRules
         if PricingRules.LIST_TYPE == 'normal':
             if self.metric.__class__.__name__ == 'BackendMetric':
                 return [obj for obj in instance \
-                        if self.metric['name'] == obj['metric_name'] and \
+                        if self.metric[Metrics.ID_NAME] == obj['metric_name'] and \
                         self.metric.parent['system_name'] == obj['backend_name']]
             else:
                 return [obj for obj in instance \
-                        if self.metric['name'] == obj['metric_name'] and \
+                        if self.metric[Metrics.ID_NAME] == obj['metric_name'] and \
                         'backend_name' not in obj.entity]
         else:
             return [obj for obj in instance]
@@ -1371,24 +1385,24 @@ class Methods(DefaultClientNestedCRD, threescale_api.resources.Methods):
     SPEC = constants.SPEC_METHOD
     KEYS = constants.KEYS_METHOD
     SELECTOR = 'Product'
-    ID_NAME = 'name'
+    ID_NAME = 'system_name'
     def __init__(self, *args, entity_name='method', entity_collection='methods', **kwargs):
         super().__init__(*args, entity_name=entity_name, entity_collection=entity_collection,
                          **kwargs)
 
     def before_create(self, params, spec):
         """Called before create."""
-        if 'name' in params and 'friendly_name' not in params:
-            params['friendly_name'] = params.get('name')
         if 'system_name' in params and 'friendly_name' not in params:
-            params['friendly_name'] = params.pop('system_name')
+            params['friendly_name'] = params.get(Methods.ID_NAME)
+        if 'name' in params and 'friendly_name' not in params:
+            params['friendly_name'] = params.pop('name')
         if 'description' not in params:
-            params['description'] = params.get('name')
-        params.pop('system_name', None)
+            params['description'] = params.get(Methods.ID_NAME)
+        params.pop('name', None)
 
     def before_update(self, new_params, resource):
         """Called before update."""
-        new_params['id'] = new_params['name']
+        new_params['id'] = new_params[Methods.ID_NAME]
         if resource and 'id' in new_params:
             resource.entity_id = new_params['id']
         return self.translate_to_crd(new_params)
@@ -1399,7 +1413,7 @@ class Methods(DefaultClientNestedCRD, threescale_api.resources.Methods):
 
     def in_create(self, maps, params, spec):
         """Do steps to create new instance"""
-        name = params.get(self.ID_NAME)
+        name = params.get(Methods.ID_NAME)
         maps[name] = spec['spec']
         self.topmost_parent().read()
         self.topmost_parent().update({'methods': maps})
@@ -1429,7 +1443,7 @@ class Methods(DefaultClientNestedCRD, threescale_api.resources.Methods):
         for mapi in self.get_list():
             map_ret = self.translate_to_crd(mapi.entity)
             if map_ret != spec:
-                name = mapi[self.ID_NAME]
+                name = mapi[Methods.ID_NAME]
                 maps[name] = map_ret
         return maps
 
@@ -1442,7 +1456,7 @@ class Methods(DefaultClientNestedCRD, threescale_api.resources.Methods):
 
     def trans_item(self, key, value, obj):
         """ Translate entity to CRD. """
-        if key != 'name':
+        if key != Methods.ID_NAME:
             return obj[key]
         return None
 
@@ -1471,9 +1485,9 @@ class Service(DefaultResourceCRD, threescale_api.resources.Service):
                         entity[cey] = value
             entity['id'] = crd.as_dict().get('status').get(Services.ID_NAME)
             # add ids to cache
-            if entity['id'] and entity['system_name']:
-                Service.id_to_system_name[int(entity['id'])] = entity['system_name']
-                Service.system_name_to_id[entity['system_name']] = int(entity['id'])
+            if entity['id'] and entity[entity_name]:
+                Service.id_to_system_name[int(entity['id'])] = entity[entity_name]
+                Service.system_name_to_id[entity[entity_name]] = int(entity['id'])
             auth = crd.model.spec.get('deployment', None)
             # TODO add better authentication work
             if auth:
@@ -1540,13 +1554,14 @@ class Proxy(DefaultResourceCRD, threescale_api.resources.Proxy):
                 elif apicast_key == 'apicastSelfManaged':
                     entity['deployment_option'] = 'self_managed'
                 self.spec_path.append(apicast_key)
+                spec = spec.get(apicast_key, {})
                 # add endpoint and sandbox_endpoint
                 for key, value in spec.items():
                     for cey, walue in constants.KEYS_PROXY.items():
                         if key == walue:
                             entity[cey] = value
 
-                spec = list(spec.values())[0].get('authentication', {})
+                spec = spec.get('authentication', {})
                 self.spec_path.append('authentication')
                 # userkey or appKeyAppID or oidc
                 if spec and len(spec.values()):
@@ -1666,8 +1681,9 @@ class OIDCConfigs(threescale_api.resources.DefaultClient):
 
     def update(self, params: dict = None, **kwargs):
         proxy = self.parent.list()
-        proxy.oidc['oidc_configuration'].update(params['oidc_configuration'])
-        proxy.update()
+        oidc = proxy.oidc['oidc_configuration']
+        oidc.update(params['oidc_configuration'])
+        proxy.update(oidc=oidc)
 
     def read(self, params: dict = None, **kwargs):
         proxy = self.parent.list()
@@ -1702,9 +1718,9 @@ class MappingRule(DefaultResourceCRD, threescale_api.resources.MappingRule):
                 #     met_system_name = entity['metric_id'] + '.' + str(self.parent['id'])
                 # else:
                 met_system_name = entity['metric_id']
-                met = self.parent.metrics.read_by(**{'name': met_system_name})
+                met = self.parent.metrics.read_by(**{'system_name': met_system_name})
                 if not met:
-                    met = self.parent.metrics.read_by_name('hits').methods.read_by(**{'name': met_system_name})
+                    met = self.parent.metrics.read_by_name('hits').methods.read_by(**{'system_name': met_system_name})
                 entity['metric_id'] = met['id']
         else:
             # this is not here because of some backup, but because we need to have option
@@ -1903,7 +1919,7 @@ class Metric(DefaultResourceCRD, threescale_api.resources.Metric):
     system_name_to_id = {}
     id_to_system_name = {}
 
-    def __init__(self, entity_name='name', **kwargs):
+    def __init__(self, entity_name='system_name', **kwargs):
         entity = None
         if 'spec' in kwargs:
             spec = kwargs.pop('spec')
@@ -1915,7 +1931,7 @@ class Metric(DefaultResourceCRD, threescale_api.resources.Metric):
                     if key == walue:
                         entity[cey] = value
             # simulate id because CRD has no ids
-            entity['id'] = (entity['name'], entity['unit'])
+            entity['id'] = (entity[entity_name], entity['unit'])
             self.entity_id = entity.get('id')
             # it is not possible to simulate id here because
             # it is used in BackendMappingRules, which is not implemented
@@ -2033,8 +2049,8 @@ class ApplicationPlan(DefaultResourceCRD, threescale_api.resources.ApplicationPl
                 for cey, walue in constants.KEYS_APP_PLANS.items():
                     if key == walue:
                         entity[cey] = value
-            if 'system_name' in spec:
-                entity['name'] = spec['system_name']
+            if entity_name in spec:
+                entity['name'] = spec[entity_name]
             spec['state_event'] = 'publish' if spec.get('state_event', False) else 'unpublish'
             # simulate id because CRD has no ids
             entity['id'] = entity['name']
@@ -2278,7 +2294,7 @@ class Tenant(DefaultResourceCRD, threescale_api.resources.Tenant):
 
     FOLD = ["signup", "account"]
 
-    def __init__(self, entity_name='name', **kwargs):
+    def __init__(self, entity_name='username', **kwargs):
         entity = None
         if 'spec' in kwargs:
             spec = kwargs.pop('spec')
@@ -2306,7 +2322,7 @@ class Tenant(DefaultResourceCRD, threescale_api.resources.Tenant):
 
 
 #    @property
-#    def entity_id(self) -> int:
+#    def entity_id(self) -> int
 #        return self.entity[Tenant.FOLD[0]][Tenant.FOLD[1]]["id"]
 
 
@@ -2478,10 +2494,14 @@ class Application(DefaultResourceCRD, threescale_api.resources.Application):
             client.disable_crd_implemented()
             acc = client.parent.accounts.select_by(name=entity['account_name'])[0]
             app = acc.applications.read(entity['id'])
-            if 'user_key' in app.entity.keys():
+            auth = app.service['backend_version']
+            if auth == Service.AUTH_USER_KEY:
                 entity['user_key'] = app['user_key']
-            elif 'application_id' in app.entity.keys():
+            elif auth == Service.AUTH_APP_ID_KEY:
                 entity['application_id'] = app['application_id']
+            elif auth == Service.AUTH_OIDC:
+                entity['client_id'] = app['client_id']
+                entity['client_secret'] = app['client_secret']
             client.enable_crd_implemented()
 
             super().__init__(crd=crd, entity=entity, entity_name=entity_name, **kwargs)
@@ -2531,7 +2551,7 @@ class Method(DefaultResourceCRD, threescale_api.resources.Method):
     system_name_to_id = {}
     id_to_system_name = {}
 
-    def __init__(self, entity_name='name', **kwargs):
+    def __init__(self, entity_name='system_name', **kwargs):
         entity = None
         if 'spec' in kwargs:
             spec = kwargs.pop('spec')
@@ -2544,9 +2564,9 @@ class Method(DefaultResourceCRD, threescale_api.resources.Method):
             # simulate id because CRD has no ids
             if 'name' not in entity:
                 entity['name'] = entity['friendly_name']
-            if 'system_name' not in entity:
-                entity['system_name'] = entity['friendly_name']
-            entity['id'] = entity['name']
+            if entity_name not in entity:
+                entity[entity_name] = entity['friendly_name']
+            entity['id'] = entity[entity_name]
             self.entity_id = entity.get('id')
 
             self.entity_id = entity['id']

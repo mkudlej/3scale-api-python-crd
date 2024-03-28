@@ -82,6 +82,19 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         """
         return self.fetch_crd_entity(name) or super().read_by_name(name, **kwargs) 
 
+#    def read(self, entity_id: int = None) -> 'DefaultResource':
+#        """Read the instance, read will just create empty resource and lazyloads only if needed
+#        Args:
+#            entity_id(int): Entity id
+#        Returns(DefaultResource): Default resource
+#        """
+#        LOG.debug(self._log_message("[READ] CRD Read ", entity_id=entity_id))
+#        if self.is_crd_implemented():
+#            self.fetch(entity_id=entity_id)
+#        else:
+#            return threescale_api.defaults.DefaultClient.read(self, entity_id, **kwargs)
+
+
     def fetch(self, entity_id: int = None, **kwargs):
         """Fetches the entity dictionary
         Args:
@@ -134,7 +147,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
     @staticmethod
     def normalize(str_in: str):
         """Some values in CRD cannot contain some characters."""
-        return str_in.translate(''.maketrans({'-': '', '_': '', '/': ''})).lower()
+        return str_in.translate(''.maketrans({'-': '', '_': '', '/': '', '[': '', ']': ''})).lower()
 
     @staticmethod
     def cleanup_spec(spec, keys, params):
@@ -189,7 +202,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             #    if not list_objs:
             #        time.sleep(counters.pop())
 
-            timeout = 200
+            timeout = 1000
             #if self.__class__.__name__ in ['Promotes']:
             #    timeout = 1000
 
