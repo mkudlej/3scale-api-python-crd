@@ -27,20 +27,21 @@ def test_backend_can_be_read(api, backend_params, backend):
 
 
 def test_backend_can_be_read_by_name(api, backend_params, backend):
-    backend_name = backend['system_name']
+    backend_name = backend["system_name"]
     read = api.backends[backend_name]
     asserts.assert_resource(read)
     asserts.assert_resource_params(read, backend_params)
 
 
 def test_backend_can_be_updated(api, backend):
-    assert backend['description'] == '111'
-    backend['description'] = '222'
+    assert backend["description"] == "111"
+    backend["description"] = "222"
     backend.update()
-    assert backend['description'] == '222'
+    assert backend["description"] == "222"
     updated = backend.read()
-    assert updated['description'] == '222'
-    assert backend['description'] == '222'
+    assert updated["description"] == "222"
+    assert backend["description"] == "222"
+
 
 # end of tests important for CRD - CRU + list
 

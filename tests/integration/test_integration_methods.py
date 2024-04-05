@@ -10,9 +10,11 @@ def test_should_list_methods(hits_metric, method):
     resources = hits_metric.methods.list()
     assert len(resources) > 0
 
+
 def test_should_create_method(method, method_params):
     asserts.assert_resource(method)
     asserts.assert_resource_params(method, method_params)
+
 
 # this is not possible in CRD, all methods are bound on 'hits'
 # def test_should_not_create_method_for_custom_metric(metric, method_params):
@@ -32,5 +34,6 @@ def test_should_update_method(hits_metric, method, updated_method_params):
     asserts.assert_resource(resource)
     asserts.assert_resource_params(resource, updated_method_params)
     assert lcount == hits_metric.methods.list()
+
 
 # end of tests important for CRD - CRU + list
