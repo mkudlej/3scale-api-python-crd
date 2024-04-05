@@ -8,18 +8,22 @@ from tests.integration import asserts
 
 # tests important for CRD - CRU + list
 
+
 def test_should_list_metrics(service, metric):
     resources = service.metrics.list()
     assert len(resources) > 0
+
 
 def test_should_create_metric(metric, metric_params):
     asserts.assert_resource(metric)
     asserts.assert_resource_params(metric, metric_params)
 
+
 def test_should_read_metric(metric, metric_params):
     resource = metric.read()
     asserts.assert_resource(resource)
     asserts.assert_resource_params(resource, metric_params)
+
 
 def test_should_update_metric(service, metric, updated_metric_params):
     lcount = service.metrics.list()
@@ -28,10 +32,11 @@ def test_should_update_metric(service, metric, updated_metric_params):
     asserts.assert_resource_params(resource, updated_metric_params)
     assert lcount == service.metrics.list()
 
+
 # end of tests important for CRD - CRU + list
 
 # TODO
-#def test_should_apicast_return_403_when_metric_is_disabled(
+# def test_should_apicast_return_403_when_metric_is_disabled(
 #        service, metric_params, create_mapping_rule,
 #        account, ssl_verify, backend_usage):
 #    """Metric is disabled when its limit is set to 0."""
@@ -58,19 +63,19 @@ def test_should_update_metric(service, metric, updated_metric_params):
 #    assert response.status_code == 403
 #
 #
-#@backoff.on_predicate(backoff.expo, lambda resp: resp.status_code == 200,
+# @backoff.on_predicate(backoff.expo, lambda resp: resp.status_code == 200,
 #                      max_tries=8)
-#def make_request(client, path):
+# def make_request(client, path):
 #    return client.get(path=path)
 #
 #
-#def get_user_key_from_application(app, proxy):
+# def get_user_key_from_application(app, proxy):
 #    user_key = app['user_key']
 #    user_key_param = proxy['auth_user_key']
 #    return {user_key_param: user_key}
 #
 #
-#def update_proxy_endpoint(service, backend_usage):
+# def update_proxy_endpoint(service, backend_usage):
 #    """Update service proxy."""
 #    path = backend_usage['path']
 #    backend_usage['path'] = '/moloko'
@@ -84,7 +89,7 @@ def test_should_update_metric(service, metric, updated_metric_params):
 #    proxy.promote(version=version)
 #
 #
-#def test_should_apicast_return_429_when_limits_exceeded(
+# def test_should_apicast_return_429_when_limits_exceeded(
 #        service, application_plan, create_mapping_rule,
 #        apicast_http_client, backend_usage):
 #    metric_params = dict(name='limits_exceeded', unit='count',

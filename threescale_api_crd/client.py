@@ -7,30 +7,47 @@ from openshift_client import OpenShiftPythonException
 import threescale_api
 from threescale_api_crd import resources
 
+
 class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
     """
     Threescale client for CRD.
     """
+
     def __init__(self, url, token, ocp_provider_ref=None, *args, **kwargs):
         super().__init__(url, token, *args, **kwargs)
         self._ocp_provider_ref = ocp_provider_ref
         self._ocp_namespace = ThreeScaleClientCRD.get_namespace()
-        self._services = resources.Services(parent=self, instance_klass=resources.Service)
+        self._services = resources.Services(
+            parent=self, instance_klass=resources.Service
+        )
         self._active_docs = resources.ActiveDocs(
-            parent=self,
-            instance_klass=resources.ActiveDoc)
+            parent=self, instance_klass=resources.ActiveDoc
+        )
         self._policy_registry = resources.PoliciesRegistry(
-            parent=self,
-            instance_klass=resources.PolicyRegistry)
-        self._backends = resources.Backends(parent=self, instance_klass=resources.Backend)
-        self._accounts = resources.Accounts(parent=self, instance_klass=resources.Account)
-        self._accounts_users = resources.AccountUsers(parent=self, instance_klass=resources.AccountUser)
-        self._openapis = resources.OpenApis(parent=self, instance_klass=resources.OpenApi)
+            parent=self, instance_klass=resources.PolicyRegistry
+        )
+        self._backends = resources.Backends(
+            parent=self, instance_klass=resources.Backend
+        )
+        self._accounts = resources.Accounts(
+            parent=self, instance_klass=resources.Account
+        )
+        self._accounts_users = resources.AccountUsers(
+            parent=self, instance_klass=resources.AccountUser
+        )
+        self._openapis = resources.OpenApis(
+            parent=self, instance_klass=resources.OpenApi
+        )
         self._tenants = resources.Tenants(parent=self, instance_klass=resources.Tenant)
-        self._promotes = resources.Promotes(parent=self, instance_klass=resources.Promote)
-        self._applications = resources.Applications(parent=self, account=None, instance_klass=resources.Application)
+        self._promotes = resources.Promotes(
+            parent=self, instance_klass=resources.Promote
+        )
+        self._applications = resources.Applications(
+            parent=self, account=None, instance_klass=resources.Application
+        )
 
-    def get_namespace():
+    @classmethod
+    def get_namespace(_ignore):
         """
         Returns namespace. If there is no valid Openshift 'oc' session, returns "NOT LOGGED IN".
         """
@@ -111,7 +128,7 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
 
     @property
     def ocp_provider_ref(self):
-        """Gets provider reference """
+        """Gets provider reference"""
         return self._ocp_provider_ref
 
     @property
