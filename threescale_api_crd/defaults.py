@@ -33,6 +33,7 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
             entity_name=entity_name,
             entity_collection=entity_collection,
         )
+        ocp.set_default_project(self.threescale_client.ocp_namespace)
 
     def get_list(self, typ="normal"):
         """Returns list of entities."""
@@ -87,17 +88,17 @@ class DefaultClientCRD(threescale_api.defaults.DefaultClient):
         """
         return self.fetch_crd_entity(name) or super().read_by_name(name, **kwargs)
 
-    #    def read(self, entity_id: int = None) -> 'DefaultResourceCRD':
-    #        """Read the instance, read will just create empty resource and lazyloads only if needed
-    #        Args:
-    #            entity_id(int): Entity id
-    #        Returns(DefaultResourceCRD): Default resource
-    #        """
-    #        LOG.debug(self._log_message("[READ] CRD Read ", entity_id=entity_id))
-    #        if self.is_crd_implemented():
-    #            self.fetch(entity_id=entity_id)
-    #        else:
-    #            return threescale_api.defaults.DefaultClient.read(self, entity_id, **kwargs)
+    def read(self, entity_id: int = None, **kwargs) -> 'DefaultResourceCRD':
+        """Read the instance, read will just create empty resource and lazyloads only if needed
+        Args:
+            entity_id(int): Entity id
+        Returns(DefaultResourceCRD): Default resource
+        """
+        LOG.debug(self._log_message("[READ] CRD Read ", entity_id=entity_id))
+        if self.is_crd_implemented():
+            return self.fetch(entity_id=entity_id, **kwargs)
+        else:
+            return threescale_api.defaults.DefaultClient.read(self, entity_id, **kwargs)
 
     def fetch(self, entity_id: int = None, **kwargs):
         """Fetches the entity dictionary
@@ -568,6 +569,8 @@ class DefaultResourceCRD(threescale_api.defaults.DefaultResource):
     @property
     def crd(self):
         """CRD object property."""
+        if not self._crd:
+            self.read()
         return self._crd or self.entity.get("crd", None)
 
     @crd.setter

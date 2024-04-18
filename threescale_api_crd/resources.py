@@ -1966,6 +1966,7 @@ class Proxy(DefaultResourceCRD, threescale_api.resources.Proxy):
                 "auth_user_key",
                 "auth_app_id",
                 "auth_app_key",
+                "api_test_path"
             ]
             if any([att not in entity for att in required_attrs]):
                 self.client.disable_crd_implemented()
@@ -2052,7 +2053,7 @@ class OIDCConfigs(threescale_api.resources.DefaultClient):
         proxy = self.parent.list()
         oidc = proxy.oidc["oidc_configuration"]
         oidc.update(params["oidc_configuration"])
-        proxy.update(oidc=oidc)
+        return proxy.update(oidc=oidc)
 
     def read(self, params: dict = None, **kwargs):
         proxy = self.parent.list()
