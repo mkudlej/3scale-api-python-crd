@@ -13,10 +13,10 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
     Threescale client for CRD.
     """
 
-    def __init__(self, url, token, ocp_provider_ref=None, *args, **kwargs):
+    def __init__(self, url, token, ocp_provider_ref=None, ocp_namespace=None, *args, **kwargs):
         super().__init__(url, token, *args, **kwargs)
         self._ocp_provider_ref = ocp_provider_ref
-        self._ocp_namespace = ThreeScaleClientCRD.get_namespace()
+        self._ocp_namespace = ThreeScaleClientCRD.get_namespace(ocp_namespace)
         self._services = resources.Services(
             parent=self, instance_klass=resources.Service
         )
@@ -47,12 +47,12 @@ class ThreeScaleClientCRD(threescale_api.client.ThreeScaleClient):
         )
 
     @classmethod
-    def get_namespace(_ignore):
+    def get_namespace(_ignore, namespace):
         """
         Returns namespace. If there is no valid Openshift 'oc' session, returns "NOT LOGGED IN".
         """
         try:
-            return ocp.get_project_name()
+            return namespace or ocp.get_project_name()
         except OpenShiftPythonException:
             return "NOT LOGGED IN"
 
